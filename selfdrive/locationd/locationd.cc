@@ -19,6 +19,9 @@ const double VALID_TIME_SINCE_RESET = 1.0; // s
 const double VALID_POS_STD = 50.0; // m
 const double MAX_RESET_TRACKER = 5.0;
 const double SANE_GPS_UNCERTAINTY = 1500.0; // m
+const double GYRO_BIAS_SANE = 0.174533; // 10 deg
+const double ACC_BIAS_SANE = 1; // m/s^2
+
 
 static VectorXd floatlist2vector(const capnp::List<float, capnp::Kind::PRIMITIVE>::Reader& floatlist) {
   VectorXd res(floatlist.size());
@@ -406,22 +409,31 @@ void Localizer::update_reset_tracker() {
 
 void Localizer::reset_kalman(double current_time, VectorXd init_orient, VectorXd init_pos, VectorXd init_vel, MatrixXdr init_pos_R, MatrixXdr init_vel_R) {
   // too nonlinear to init on completely wrong
+  VectorXd reset_x;
   VectorXd current_x = this->kf->get_x();
+  VectorXd init_x = this->kf->get_initial_x();
   MatrixXdr current_P = this->kf->get_P();
   MatrixXdr init_P = this->kf->get_initial_P();
   MatrixXdr reset_orientation_P = this->kf->get_reset_orientation_P();
   int non_ecef_state_err_len = init_P.rows() - (STATE_ECEF_POS_ERR_LEN + STATE_ECEF_ORIENTATION_ERR_LEN + STATE_ECEF_VELOCITY_ERR_LEN);
 
-  current_x.segment<STATE_ECEF_ORIENTATION_LEN>(STATE_ECEF_ORIENTATION_START) = init_orient;
-  current_x.segment<STATE_ECEF_VELOCITY_LEN>(STATE_ECEF_VELOCITY_START) = init_vel;
-  current_x.segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START) = init_pos;
+  if (this->currentHiddenParamsNotSane()){
+    LOGE("Current hidden parameters are not sane; reset!");
+    reset_x = init_x;
+  } else{
+    reset_x = current_x;
+  }
+
+  reset_x.segment<STATE_ECEF_ORIENTATION_LEN>(STATE_ECEF_ORIENTATION_START) = init_orient;
+  reset_x.segment<STATE_ECEF_VELOCITY_LEN>(STATE_ECEF_VELOCITY_START) = init_vel;
+  reset_x.segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START) = init_pos;
 
   init_P.block<STATE_ECEF_POS_ERR_LEN, STATE_ECEF_POS_ERR_LEN>(STATE_ECEF_POS_ERR_START, STATE_ECEF_POS_ERR_START).diagonal() = init_pos_R.diagonal();
   init_P.block<STATE_ECEF_ORIENTATION_ERR_LEN, STATE_ECEF_ORIENTATION_ERR_LEN>(STATE_ECEF_ORIENTATION_ERR_START, STATE_ECEF_ORIENTATION_ERR_START).diagonal() = reset_orientation_P.diagonal();
   init_P.block<STATE_ECEF_VELOCITY_ERR_LEN, STATE_ECEF_VELOCITY_ERR_LEN>(STATE_ECEF_VELOCITY_ERR_START, STATE_ECEF_VELOCITY_ERR_START).diagonal() = init_vel_R.diagonal();
   init_P.block(STATE_ANGULAR_VELOCITY_ERR_START, STATE_ANGULAR_VELOCITY_ERR_START, non_ecef_state_err_len, non_ecef_state_err_len).diagonal() = current_P.block(STATE_ANGULAR_VELOCITY_ERR_START, STATE_ANGULAR_VELOCITY_ERR_START, non_ecef_state_err_len, non_ecef_state_err_len).diagonal();
   
-  this->reset_kalman(current_time, current_x, init_P);
+  this->reset_kalman(current_time, reset_x, init_P);
 }
 
 void Localizer::reset_kalman(double current_time, VectorXd init_x, MatrixXdr init_P) {
@@ -473,6 +485,13 @@ kj::ArrayPtr<capnp::byte> Localizer::get_message_bytes(MessageBuilder& msg_build
 
 bool Localizer::isGpsOK() {
   return this->kf->get_filter_time() - this->last_gps_fix < 1.0;
+}
+
+bool Localizer::currentHiddenParamsNotSane() {
+  VectorXd current_x = this->kf->get_x();
+  VectorXd gyro_bias = current_x.segment<STATE_GYRO_BIAS_LEN>(STATE_GYRO_BIAS_START);
+  VectorXd acc_bias = current_x.segment<STATE_ACC_BIAS_LEN>(STATE_ACC_BIAS_START);
+  return (gyro_bias.array().abs() > GYRO_BIAS_SANE).any() || (acc_bias.array().abs() > ACC_BIAS_SANE).any();
 }
 
 void Localizer::determine_gps_mode(double current_time) {
