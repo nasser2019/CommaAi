@@ -16,7 +16,7 @@ from selfdrive.swaglog import cloudlog
 
 
 MAX_ANGLE_OFFSET_DELTA = 20 * DT_MDL  # Max 20 deg/s
-ROLL_MAX_DELTA = np.radians(20.0) * DT_MDL  # 20deg in 1 second is well within curvature limits
+ROLL_MAX_DELTA = math.radians(20.0) * DT_MDL  # 20deg in 1 second is well within curvature limits
 ROLL_MIN, ROLL_MAX = math.radians(-10), math.radians(10)
 
 class ParamsLearner:
@@ -45,7 +45,7 @@ class ParamsLearner:
       yaw_rate_std = msg.angularVelocityCalibrated.std[2]
 
       localizer_roll = msg.orientationNED.value[0]
-      localizer_roll_std = np.radians(1) if np.isnan(msg.orientationNED.std[0]) else msg.orientationNED.std[0]
+      localizer_roll_std = math.radians(1) if math.isnan(msg.orientationNED.std[0]) else msg.orientationNED.std[0]
       roll_valid = msg.orientationNED.valid and ROLL_MIN < localizer_roll < ROLL_MAX
       if roll_valid:
         roll = localizer_roll
@@ -54,7 +54,7 @@ class ParamsLearner:
       else:
         # This is done to bound the road roll estimate when localizer values are invalid
         roll = 0.0
-        roll_std = np.radians(10.0)
+        roll_std = math.radians(10.0)
       self.roll = clip(roll, self.roll - ROLL_MAX_DELTA, self.roll + ROLL_MAX_DELTA)
 
       yaw_rate_valid = msg.angularVelocityCalibrated.valid
@@ -167,7 +167,7 @@ def main(sm=None, pm=None):
 
     if sm.updated['liveLocationKalman']:
       x = learner.kf.x
-      P = np.sqrt(learner.kf.P.diagonal())
+      P = list(map(math.sqrt, learner.kf.P.diagonal()))
       if not all(map(math.isfinite, x)):
         cloudlog.error("NaN in liveParameters estimate. Resetting to default values")
         learner = ParamsLearner(CP, CP.steerRatio, 1.0, 0.0)
