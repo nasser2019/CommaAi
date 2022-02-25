@@ -51,7 +51,7 @@
 // - If any of the ignition sources in any panda is high, ignition is high
 
 #define MAX_IR_POWER 0.5f
-#define MIN_IR_POWER 0.0f
+#define MIN_IR_POWER 0.5f
 #define CUTOFF_IL 200
 #define SATURATE_IL 1600
 #define NIBBLE_TO_HEX(n) ((n) < 10 ? (n) + '0' : ((n) - 10) + 'a')
