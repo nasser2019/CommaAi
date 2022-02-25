@@ -134,7 +134,7 @@ void run_model(ModelState &model, VisionIpcClient &vipc_client_main, VisionIpcCl
       }
 
       model_transform_main = update_calibration(extrinsic_matrix_eigen, main_wide_camera, false);
-      model_transform_extra = update_calibration(extrinsic_matrix_eigen, Hardware::TICI(), true);
+      model_transform_extra = update_calibration(extrinsic_matrix_eigen, not Hardware::EON(), true);
       live_calib_seen = true;
     }
 
@@ -178,8 +178,8 @@ int main(int argc, char **argv) {
     assert(ret == 0);
   }
 
-  bool main_wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
-  bool use_extra_client = Hardware::TICI() && !main_wide_camera;
+  bool main_wide_camera = Hardware::EON() ? false : Params().getBool("EnableWideCamera");
+  bool use_extra_client = not Hardware::EON() && !main_wide_camera;
 
   // cl init
   cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
