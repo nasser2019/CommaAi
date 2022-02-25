@@ -21,9 +21,10 @@ from selfdrive.version import get_commit
 from tools.lib.framereader import FrameReader
 from tools.lib.logreader import LogReader
 
-TICI_TEST_ROUTE = "4cf7a6ad03080c90|2021-09-29--13-46-36"
+TICI_TEST_ROUTE = "fb34fd9bd05858bc|2022-02-24--22-30-55"
 EON_TEST_ROUTE = "303055c0002aefd1|2021-11-22--18-36-32"
-SEGMENT = 0
+SEGMENT = 3
+TICI = True
 if TICI:
   TEST_ROUTE = TICI_TEST_ROUTE
 else:
@@ -155,54 +156,6 @@ if __name__ == "__main__":
 
   # run replay
   log_msgs = model_replay(lr, frs)
-
-  # get diff
-  failed = False
-  if not update:
-    with open(ref_commit_fn) as f:
-      ref_commit = f.read().strip()
-    log_fn = get_log_fn(ref_commit, TEST_ROUTE, tici=TICI)
-    try:
-      cmp_log = LogReader(BASE_URL + log_fn)
-
-      ignore = [
-        'logMonoTime',
-        'modelV2.frameDropPerc',
-        'modelV2.modelExecutionTime',
-        'driverState.modelExecutionTime',
-        'driverState.dspExecutionTime'
-      ]
-      tolerance = None if not PC else 1e-3
-      results: Any = {TEST_ROUTE: {}}
-      results[TEST_ROUTE]["models"] = compare_logs(cmp_log, log_msgs, tolerance=tolerance, ignore_fields=ignore)
-      diff1, diff2, failed = format_diff(results, ref_commit)
-
-      print(diff2)
-      print('-------------\n'*5)
-      print(diff1)
-      with open("model_diff.txt", "w") as f:
-        f.write(diff2)
-    except Exception as e:
-      print(str(e))
-      failed = True
-
-  # upload new refs
-  if update or failed:
-    from selfdrive.test.openpilotci import upload_file
-
-    print("Uploading new refs")
-
-    new_commit = get_commit()
-    log_fn = get_log_fn(new_commit, TEST_ROUTE, tici=TICI)
-    save_log(log_fn, log_msgs)
-    try:
-      upload_file(log_fn, os.path.basename(log_fn))
-    except Exception as e:
-      print("failed to upload", e)
-
-    with open(ref_commit_fn, 'w') as f:
-      f.write(str(new_commit))
-
-    print("\n\nNew ref commit: ", new_commit)
-
-  sys.exit(int(failed))
+  import pickle
+  with open('model_outs.pickle', 'wb') as handle:
+    pickle.dump(log_msgs, handle, protocol=pickle.HIGHEST_PROTOCOL)
