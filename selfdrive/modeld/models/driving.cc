@@ -78,6 +78,10 @@ ModelOutput* model_eval_frame(ModelState* s, VisionBuf* buf, VisionBuf* wbuf,
   if (wbuf != nullptr) {
     auto net_extra_buf = s->wide_frame->prepare(wbuf->buf_cl, wbuf->width, wbuf->height, transform_wide, static_cast<cl_mem*>(s->m->getExtraBuf()));
     s->m->addExtra(net_extra_buf, s->wide_frame->buf_size);
+    printf("Img byte  0 %f \n", net_input_buf[0]);
+    printf("Img byte  5000 %f \n", net_input_buf[5000]);
+    printf("Extra Img byte  0 %f \n", net_extra_buf[0]);
+    printf("Extra Img byte  5000 %f \n", net_extra_buf[5000]);
   }
   s->m->execute();
 
