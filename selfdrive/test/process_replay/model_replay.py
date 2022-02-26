@@ -77,6 +77,7 @@ def model_replay(lr, frs):
       time.sleep(0.1)
 
     msgs = defaultdict(list)
+    cnt = 0
     for msg in lr:
       msgs[msg.which()].append(msg)
 
@@ -115,6 +116,7 @@ def model_replay(lr, frs):
           if msg.which() in ('roadCameraState', 'wideRoadCameraState'):
             if not TICI or min(frame_idxs['roadCameraState'], frame_idxs['wideRoadCameraState']) > recv_cnt['modelV2']:
               recv = "modelV2"
+              cnt += 1
           elif msg.which() == 'driverCameraState':
             recv = "driverState"
 
@@ -128,6 +130,8 @@ def model_replay(lr, frs):
                          frs['roadCameraState'].frame_count, frame_idxs['driverCameraState'], frs['driverCameraState'].frame_count))
 
       if any(frame_idxs[c] >= frs[c].frame_count for c in frame_idxs.keys()):
+        break
+      if cnt == 300:
         break
 
   finally:
