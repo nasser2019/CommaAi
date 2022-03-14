@@ -251,8 +251,7 @@ class DriverStatus():
     self.eev2 = driver_state.readyProb[0]
 
     self.distracted_types = self._get_distracted_types()
-    self.driver_distracted = (DistractedType.DISTRACTED_POSE in self.distracted_types or
-                                            DistractedType.DISTRACTED_BLINK in self.distracted_types) and \
+    self.driver_distracted = DistractedType.DISTRACTED_E2E in self.distracted_types and \
                                           driver_state.faceProb > self.settings._FACE_THRESHOLD and self.pose.low_std
     self.driver_distraction_filter.update(self.driver_distracted)
 
