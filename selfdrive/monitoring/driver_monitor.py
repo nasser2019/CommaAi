@@ -276,7 +276,7 @@ class DriverStatus():
       self.hi_stds = 0
 
   def update_events(self, events, driver_engaged, ctrl_active, standstill):
-    if (driver_engaged and self.awareness > 0) or not ctrl_active:
+    if (driver_engaged and ctrl_active):
       # reset only when on disengagement if red reached
       self.awareness = 1.
       self.awareness_active = 1.
@@ -295,7 +295,7 @@ class DriverStatus():
       if self.awareness > self.threshold_prompt:
         return
 
-    standstill_exemption = standstill and self.awareness - self.step_change <= self.threshold_prompt
+    standstill_exemption = (standstill or not ctrl_active) and self.awareness - self.step_change <= self.threshold_prompt
     certainly_distracted = self.driver_distraction_filter.x > 0.63 and self.driver_distracted and self.face_detected
     maybe_distracted = self.hi_stds > self.settings._HI_STD_FALLBACK_TIME or not self.face_detected
     if certainly_distracted or maybe_distracted:
