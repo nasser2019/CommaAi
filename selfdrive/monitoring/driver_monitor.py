@@ -34,8 +34,8 @@ class DRIVER_MONITOR_SETTINGS():
     self._BLINK_THRESHOLD_SLACK = 0.8 if TICI else 0.75
     self._BLINK_THRESHOLD_STRICT = self._BLINK_THRESHOLD
 
-    self._EE_THRESH11 = 0.75 if TICI else 0.4
-    self._EE_THRESH12 = 3.25 if TICI else 2.45
+    self._EE_THRESH11 = 0.49 if TICI else 0.4
+    self._EE_THRESH12 = 2.9 if TICI else 2.3
     self._EE_THRESH21 = 0.01
     self._EE_THRESH22 = 0.35
 
