@@ -267,6 +267,11 @@ void OnroadHud::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, flo
 }
 
 // NvgWindow
+NvgWindow::NvgWindow(VisionStreamType type, QWidget* parent) :
+  CameraViewWidget("camerad", type, true, parent), fps_filter(20, 3, 1. / UI_FREQ) {
+
+}
+
 void NvgWindow::initializeGL() {
   CameraViewWidget::initializeGL();
   qInfo() << "OpenGL version:" << QString((const char*)glGetString(GL_VERSION));
@@ -376,9 +381,10 @@ void NvgWindow::paintGL() {
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
-  if (dt > 66) {
-    // warn on sub 15fps
-    LOGW("slow frame time: %.2f", dt);
+  double ui_freq = fps_filter.update(1. / (dt / 1000.));
+  printf("%.2f\n", ui_freq);
+  if (ui_freq < 15) {
+    LOGW("UI lagging: %.2fHz", ui_freq);
   }
   prev_draw_t = cur_draw_t;
 }
