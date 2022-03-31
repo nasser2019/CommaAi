@@ -25,6 +25,7 @@ class LatTunes(Enum):
   PID_M = 14
   PID_N = 15
   TORQUE = 16
+  TORQUE_LOCALIZER = 17
 
 
 ###### LONG ######
@@ -59,16 +60,14 @@ def set_lat_tune(tune, name):
     tune.torque.ki = 0.0 / MAX_TORQUE
     tune.torque.kd = 0.0 / MAX_TORQUE
     tune.torque.kf = 0.75 / MAX_TORQUE
-  elif name == LatTunes.INDI_PRIUS:
-    tune.init('indi')
-    tune.indi.innerLoopGainBP = [0.]
-    tune.indi.innerLoopGainV = [4.0]
-    tune.indi.outerLoopGainBP = [0.]
-    tune.indi.outerLoopGainV = [3.0]
-    tune.indi.timeConstantBP = [0.]
-    tune.indi.timeConstantV = [1.0]
-    tune.indi.actuatorEffectivenessBP = [0.]
-    tune.indi.actuatorEffectivenessV = [1.0]
+  elif name == LatTunes.TORQUE_LOCALIZER:
+    tune.init('torque')
+    tune.torque.useSteeringAngle = False
+    MAX_TORQUE = 2.0
+    tune.torque.kp = 2.0 / MAX_TORQUE
+    tune.torque.ki = 0.0 / MAX_TORQUE
+    tune.torque.kd = 0.0 / MAX_TORQUE
+    tune.torque.kf = 0.75 / MAX_TORQUE
   elif name == LatTunes.LQR_RAV4:
     tune.init('lqr')
     tune.lqr.scale = 1500.0
