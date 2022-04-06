@@ -11,7 +11,7 @@ from cereal import log
 
 
 class LateralPlanner:
-  def __init__(self, CP, use_lanelines=True, wide_camera=False):
+  def __init__(self, CP, use_lanelines=True, wide_camera=False, heading_cost=1.0, path_cost=1.0):
     self.use_lanelines = use_lanelines
     self.LP = LanePlanner(wide_camera)
     self.DH = DesireHelper()
@@ -25,6 +25,9 @@ class LateralPlanner:
     self.plan_yaw = np.zeros((TRAJECTORY_SIZE,))
     self.t_idxs = np.arange(TRAJECTORY_SIZE)
     self.y_pts = np.zeros(TRAJECTORY_SIZE)
+
+    self.heading_cost = heading_cost
+    self.path_cost = path_cost
 
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
@@ -62,9 +65,9 @@ class LateralPlanner:
       self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, self.steer_rate_cost)
     else:
       d_path_xyz = self.path_xyz
-      path_cost = np.clip(abs(self.path_xyz[0, 1] / self.path_xyz_stds[0, 1]), 0.5, 1.5) * MPC_COST_LAT.PATH
-      # Heading cost is useful at low speed, otherwise end of plan can be off-heading
-      heading_cost = interp(v_ego, [5.0, 10.0], [MPC_COST_LAT.HEADING, 0.0])
+      path_cost = self.path_cost
+      heading_cost = self.heading_cost
+
       self.lat_mpc.set_weights(path_cost, heading_cost, self.steer_rate_cost)
 
     y_pts = np.interp(v_ego * self.t_idxs[:LAT_MPC_N + 1], np.linalg.norm(d_path_xyz, axis=1), d_path_xyz[:, 1])
