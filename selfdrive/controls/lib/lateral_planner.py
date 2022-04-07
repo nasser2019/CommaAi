@@ -11,7 +11,7 @@ from cereal import log
 
 
 class LateralPlanner:
-  def __init__(self, CP, use_lanelines=True, wide_camera=False, heading_cost=1.0, path_cost=1.0):
+  def __init__(self, CP, use_lanelines=True, wide_camera=False, heading_cost=1.0, path_cost=(1.0, 1.0)):
     self.use_lanelines = use_lanelines
     self.LP = LanePlanner(wide_camera)
     self.DH = DesireHelper()
@@ -65,7 +65,7 @@ class LateralPlanner:
       self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, self.steer_rate_cost)
     else:
       d_path_xyz = self.path_xyz
-      path_cost = self.path_cost
+      path_cost = np.clip(abs(self.path_xyz[0, 1] / self.path_xyz_stds[0, 1]), self.path_cost[0], self.path_cost[1]) * MPC_COST_LAT.PATH
       heading_cost = self.heading_cost
 
       self.lat_mpc.set_weights(path_cost, heading_cost, self.steer_rate_cost)
