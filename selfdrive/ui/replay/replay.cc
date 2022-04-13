@@ -272,14 +272,14 @@ void Replay::startStream(const Segment *cur_segment) {
   cur_mono_time_ += route_start_ts_;
 
   // write CarParams
-  it = std::find_if(events.begin(), events.end(), [](auto e) { return e->which == cereal::Event::Which::CAR_PARAMS; });
-  if (it != events.end()) {
-    car_fingerprint_ = (*it)->event.getCarParams().getCarFingerprint();
-    auto bytes = (*it)->bytes();
-    Params().put("CarParams", (const char *)bytes.begin(), bytes.size());
-  } else {
-    rWarning("failed to read CarParams from current segment");
-  }
+  // it = std::find_if(events.begin(), events.end(), [](auto e) { return e->which == cereal::Event::Which::CAR_PARAMS; });
+  // if (it != events.end()) {
+  //   car_fingerprint_ = (*it)->event.getCarParams().getCarFingerprint();
+  //   auto bytes = (*it)->bytes();
+  //   Params().put("CarParams", (const char *)bytes.begin(), bytes.size());
+  // } else {
+  //   rWarning("failed to read CarParams from current segment");
+  // }
 
   // start camera server
   if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
