@@ -14,12 +14,8 @@ RADAR_MSG_COUNT = 32
 BLINDSPOT_BUS = 9
 
 BLINDSPOT_ADDRS = []
-# for i in range(1):
-i = 0
-BLINDSPOT_ADDRS += list(range(0x300 + i * 0x100, 0x308 + i * 0x100))
-i = 1
-BLINDSPOT_ADDRS += list(range(0x300 + i * 0x100, 0x308 + i * 0x100))
-# BLINDSPOT_ADDRS = [0x300]
+for i in range(4):
+  BLINDSPOT_ADDRS += list(range(0x300 + i * 0x100, 0x308 + i * 0x100))
 
 # 0400(1024)( 23500) a3805e0511624c8069810a06a16050807b809e0a1c614c80977f4a0ccca6dc807f82f20cea555c807d7f4a0f69a84c806f7ed60f7381e080677faa110f684880 
 # 0401(1025)( 23500) 737f0611b5680080777fe2192b6428807d7e42193d6b6880737e0618e66cd4806b7e7e19cba84c809177b62a0b7be880917cda2bf7a6bc808d779e2fa368fc80 
@@ -76,24 +72,23 @@ class RadarInterface(RadarInterfaceBase):
             active = not point_dat.startswith(b'\x80\x80')
 
             if active:
-              # x = point_dat[0] - 128
-              # y = point_dat[1] - 128
               angle = ((point_dat[5] << 8) + point_dat[6]) / 256
               d = ((point_dat[3] << 8) + point_dat[4]) / 256
 
-              angle = 165 - angle
-              print(ii, angle, d)
-              # y = ((point_dat[1] << 6) | (point_dat[2] >> 2)) - 8192
-              # print(radar, hex(c.address), i, point_dat.hex(), active, x, y)
+              if radar in [0, 1]:
+                angle = 165 - angle
+              else:
+                angle = 175 - angle
 
               if ii not in self.pts:
                 self.pts[ii] = car.RadarData.RadarPoint.new_message()
                 self.pts[ii].trackId = self.track_id
                 self.track_id += 1
 
-              sign = 1 if radar == 0 else -1
-              self.pts[ii].dRel = math.cos(math.radians(angle)) * d
-              self.pts[ii].yRel = sign * math.sin(math.radians(angle)) * d
+              lr = 1 if radar in [0, 2] else -1
+              fr = 1 if radar in [0, 1] else -1
+              self.pts[ii].dRel = fr * math.cos(math.radians(angle)) * d
+              self.pts[ii].yRel = lr * math.sin(math.radians(angle)) * d
               self.pts[ii].measured = True
 
             else:
