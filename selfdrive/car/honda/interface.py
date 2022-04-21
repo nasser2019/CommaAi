@@ -121,7 +121,7 @@ class CarInterface(CarInterfaceBase):
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
       tire_stiffness_factor = 0.8467
 
-      max_torque = 2.0 if eps_modified else 1.0
+      max_torque = 3.32 if eps_modified else 1.66
       friction = 0.05 if eps_modified else 0.1
 
       ret.lateralTuning.init('torque')
