@@ -93,7 +93,6 @@ class TestCarModel(unittest.TestCase):
   def tearDownClass(cls):
     del cls.can_msgs
     del cls.CarInterface, cls.CarController, cls.CarState, cls.CP
-    print('Torn down!')
 
   def setUp(self):
     self.CI = self.CarInterface(self.CP, self.CarController, self.CarState)
