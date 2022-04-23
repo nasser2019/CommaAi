@@ -79,6 +79,7 @@ sympy = "!=1.6.1"
 timezonefinder = "*"
 tqdm = "*"
 urllib3 = "*"
+unittest-parallel = "*"
 utm = "*"
 websocket_client = "*"
 

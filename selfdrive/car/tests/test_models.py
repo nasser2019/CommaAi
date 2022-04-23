@@ -25,9 +25,6 @@ from panda.tests.safety.common import package_can_msg
 
 PandaType = log.PandaState.PandaType
 
-NUM_JOBS = int(os.environ.get("NUM_JOBS", "1"))
-JOB_ID = int(os.environ.get("JOB_ID", "0"))
-
 ignore_addr_checks_valid = [
   GM.BUICK_REGAL,
   HYUNDAI.GENESIS_G70_2020,
@@ -40,8 +37,7 @@ for r in routes:
 
 test_cases: List[Tuple[str, Optional[TestRoute]]] = []
 for i, c in enumerate(sorted(all_known_cars())):
-  if i % NUM_JOBS == JOB_ID:
-    test_cases.extend((c, r) for r in routes_by_car.get(c, (None, )))
+  test_cases.extend((c, r) for r in routes_by_car.get(c, (None, )))
 
 SKIP_ENV_VAR = "SKIP_LONG_TESTS"
 
@@ -92,6 +88,12 @@ class TestCarModel(unittest.TestCase):
     cls.CP = cls.CarInterface.get_params(cls.car_model, fingerprint, [], disable_radar)
     assert cls.CP
     assert cls.CP.carFingerprint == cls.car_model
+
+  @classmethod
+  def tearDownClass(cls):
+    del cls.can_msgs
+    del cls.CarInterface, cls.CarController, cls.CarState, cls.CP
+    print('Torn down!')
 
   def setUp(self):
     self.CI = self.CarInterface(self.CP, self.CarController, self.CarState)

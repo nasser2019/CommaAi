@@ -386,9 +386,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 50
     strategy:
-      fail-fast: false
-      matrix:
-        job: [0, 1, 2, 3]
+      fail-fast: true
     steps:
     - uses: actions/checkout@v2
       with:
@@ -398,7 +396,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: /tmp/comma_download_cache
-        key: car_models-${{ hashFiles('selfdrive/car/tests/test_models.py', 'selfdrive/car/tests/routes.py') }}-${{ matrix.job }}
+        key: car_models-${{ hashFiles('selfdrive/car/tests/test_models.py', 'selfdrive/car/tests/routes.py') }}
     - name: Cache scons
       id: scons-cache
       # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
@@ -416,12 +414,7 @@ jobs:
     - name: Test car models
       run: |
         ${{ env.RUN }} "scons -j$(nproc) --test && \
-                        FILEREADER_CACHE=1 coverage run -m pytest selfdrive/car/tests/test_models.py && \
-                        coverage xml && \
-                        chmod -R 777 /tmp/comma_download_cache"
-      env:
-        NUM_JOBS: 4
-        JOB_ID: ${{ matrix.job }}
+                        FILEREADER_CACHE=1 unittest-parallel -s ./selfdrive/car/tests -p test_models.py --class-fixtures -j$(nproc)"
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v2
 
