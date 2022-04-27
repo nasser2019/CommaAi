@@ -84,10 +84,12 @@ void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s,
   // RAW frame
   const int frame_size = ci->frame_height * ci->frame_stride;
   camera_bufs = std::make_unique<VisionBuf[]>(frame_buf_count);
+  camera_bufs_stats = std::make_unique<VisionBuf[]>(frame_buf_count);
   camera_bufs_metadata = std::make_unique<FrameMetadata[]>(frame_buf_count);
 
   for (int i = 0; i < frame_buf_count; i++) {
     camera_bufs[i].allocate(frame_size);
+    camera_bufs_stats[i].allocate(4 * ci->frame_stride); // TODO: get STATS_HEIGHT from camera info
     camera_bufs[i].init_cl(device_id, context);
   }
   LOGD("allocated %d CL buffers", frame_buf_count);
@@ -146,6 +148,12 @@ bool CameraBuf::acquire() {
   cl_event event;
 
   double start_time = millis_since_boot();
+
+  uint8_t *stats = (uint8_t*)camera_bufs_stats[cur_buf_idx].addr;
+  for (int i = 0; i < 128; i++){
+    printf("%02x ", stats[i]);
+  }
+  printf("\n");
 
   if (debayer) {
     float gain = 0.0;
