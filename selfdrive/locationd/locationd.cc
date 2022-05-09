@@ -250,14 +250,60 @@ void Localizer::input_fake_gps_observations(double current_time) {
   // Steps : first predict -> observe current obs with reasonable STD
   this->kf->predict(current_time);
 
-  VectorXd current_x = this->kf->get_x();  
+  VectorXd current_x = this->kf->get_x();
   VectorXd ecef_pos = current_x.segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START);
   VectorXd ecef_vel = current_x.segment<STATE_ECEF_VELOCITY_LEN>(STATE_ECEF_VELOCITY_START);
   MatrixXdr ecef_pos_R = this->kf->get_fake_gps_pos_cov();
   MatrixXdr ecef_vel_R = this->kf->get_fake_gps_vel_cov();
-  
+
   this->kf->predict_and_observe(current_time, OBSERVATION_ECEF_POS, { ecef_pos }, { ecef_pos_R });
   this->kf->predict_and_observe(current_time, OBSERVATION_ECEF_VEL, { ecef_vel }, { ecef_vel_R });
+}
+
+inline void Localizer::handle_gnss_constellation(double current_time, ConstellationId c_id, std::vector<cereal::GnssMeasurements::CorrectedMeasurement::Reader> meas_per_constellation)
+{
+  auto size = meas_per_constellation.size();
+  std::vector<VectorXd> pseudo_zs(size);
+  std::vector<MatrixXdr> pseudo_Rs(size);
+  std::vector<std::vector<double>> satpos_glonassfreqs(size);
+
+  std::vector<VectorXd> pseudo_rate_zs(size);
+  std::vector<MatrixXdr> pseudo_rate_Rs(size);
+  std::vector<std::vector<double>> satpos_satvels(size);
+  auto observation = (c_id == ConstellationId::GPS) ? OBSERVATION_PSEUDORANGE_GPS : OBSERVATION_PSEUDORANGE_GLONASS;
+  auto observation_rate = (c_id == ConstellationId::GPS) ? OBSERVATION_PSEUDORANGE_RATE_GPS : OBSERVATION_PSEUDORANGE_RATE_GLONASS;
+
+  for (int i = 0; i < size; ++i)
+  {
+    auto meas = meas_per_constellation[i];
+    pseudo_zs[i] = Vector3d::Constant(meas.getPseudorange());
+    pseudo_Rs[i] = Vector3d::Constant(std::pow(meas.getPseudorangeStd(), 2)).asDiagonal();
+    auto sp = meas.getSatPos();
+    satpos_glonassfreqs[i] = {sp[0], sp[1], sp[2], (double)meas.getGlonassFrequency()};
+
+    pseudo_rate_zs[i] = Vector3d::Constant(meas.getPseudorangeRate());
+    pseudo_rate_Rs[i] = Vector3d::Constant(std::pow(meas.getPseudorangeRateStd(), 2)).asDiagonal();
+    auto sv = meas.getSatVel();
+    satpos_satvels[i] = {sp[0], sp[1], sp[2], sv[0], sv[1], sv[2]};
+  }
+  this->kf->predict_and_observe(current_time, observation, pseudo_zs, pseudo_Rs, satpos_glonassfreqs);
+  this->kf->predict_and_observe(current_time, observation_rate, pseudo_rate_zs, pseudo_rate_Rs, satpos_satvels);
+}
+
+void Localizer::handle_gnss_measurements(const cereal::GnssMeasurements::Reader& log) {
+  auto time = log.getUbloxMonoTime();
+  std::vector<cereal::GnssMeasurements::CorrectedMeasurement::Reader> meas_gps;
+  std::vector<cereal::GnssMeasurements::CorrectedMeasurement::Reader> meas_glonass;
+  for (cereal::GnssMeasurements::CorrectedMeasurement::Reader meas: log.getCorrectedMeasurements()) {
+    auto c_id = meas.getConstellationId();
+
+    // Only GPS and Glonass are currently supported
+    if (c_id == ConstellationId::GPS) meas_gps.push_back(meas);
+    else if (c_id == ConstellationId::GLONASS) meas_glonass.push_back(meas);
+  }
+
+  if (meas_gps.size() > 0) handle_gnss_constellation(time, ConstellationId::GPS, meas_gps);
+  if (meas_glonass.size() > 0) handle_gnss_constellation(time, ConstellationId::GLONASS, meas_glonass);
 }
 
 void Localizer::handle_gps(double current_time, const cereal::GpsLocationData::Reader& log) {
@@ -283,7 +329,7 @@ void Localizer::handle_gps(double current_time, const cereal::GpsLocationData::R
   VectorXd ecef_vel = this->converter->ned2ecef({ log.getVNED()[0], log.getVNED()[1], log.getVNED()[2] }).to_vector() - ecef_pos;
   MatrixXdr ecef_pos_R = Vector3d::Constant(std::pow(10.0 * log.getAccuracy(),2) + std::pow(10.0 * log.getVerticalAccuracy(),2)).asDiagonal();
   MatrixXdr ecef_vel_R = Vector3d::Constant(std::pow(log.getSpeedAccuracy() * 10.0, 2)).asDiagonal();
-  
+
   this->unix_timestamp_millis = log.getTimestamp();
   double gps_est_error = (this->kf->get_x().segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START) - ecef_pos).norm();
 
@@ -419,7 +465,7 @@ void Localizer::reset_kalman(double current_time, VectorXd init_orient, VectorXd
   init_P.block<STATE_ECEF_ORIENTATION_ERR_LEN, STATE_ECEF_ORIENTATION_ERR_LEN>(STATE_ECEF_ORIENTATION_ERR_START, STATE_ECEF_ORIENTATION_ERR_START).diagonal() = reset_orientation_P.diagonal();
   init_P.block<STATE_ECEF_VELOCITY_ERR_LEN, STATE_ECEF_VELOCITY_ERR_LEN>(STATE_ECEF_VELOCITY_ERR_START, STATE_ECEF_VELOCITY_ERR_START).diagonal() = init_vel_R.diagonal();
   init_P.block(STATE_ANGULAR_VELOCITY_ERR_START, STATE_ANGULAR_VELOCITY_ERR_START, non_ecef_state_err_len, non_ecef_state_err_len).diagonal() = current_P.block(STATE_ANGULAR_VELOCITY_ERR_START, STATE_ANGULAR_VELOCITY_ERR_START, non_ecef_state_err_len, non_ecef_state_err_len).diagonal();
-  
+
   this->reset_kalman(current_time, current_x, init_P);
 }
 
@@ -451,6 +497,8 @@ void Localizer::handle_msg(const cereal::Event::Reader& log) {
     this->handle_cam_odo(t, log.getCameraOdometry());
   } else if (log.isLiveCalibration()) {
     this->handle_live_calib(t, log.getLiveCalibration());
+  } else if (log.isGnssMeasurements()) {
+    this->handle_gnss_measurements(log.getGnssMeasurements());
   }
   this->finite_check();
   this->update_reset_tracker();
@@ -490,7 +538,7 @@ void Localizer::determine_gps_mode(double current_time) {
 }
 
 int Localizer::locationd_thread() {
-  const std::initializer_list<const char *> service_list = {"gpsLocationExternal", "sensorEvents", "cameraOdometry", "liveCalibration", "carState", "carParams"};
+  const std::initializer_list<const char *> service_list = {"gpsLocationExternal", "sensorEvents", "cameraOdometry", "liveCalibration", "carState", "carParams", "gnssMeasurements"};
   PubMaster pm({"liveLocationKalman"});
 
   // TODO: remove carParams once we're always sending at 100Hz
