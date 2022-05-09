@@ -23,7 +23,7 @@ from selfdrive.manager.process_config import managed_processes
 # Numpy gives different results based on CPU features after version 19
 NUMPY_TOLERANCE = 1e-7
 CI = "CI" in os.environ
-TIMEOUT = 50
+TIMEOUT = 15
 
 ProcessConfig = namedtuple('ProcessConfig', ['proc_name', 'pub_sub', 'ignore', 'init_callback', 'should_recv_callback', 'tolerance', 'fake_pubsubmaster', 'submaster_config'], defaults=({},))
 
@@ -300,7 +300,7 @@ CONFIGS = [
   ProcessConfig(
     proc_name="locationd",
     pub_sub={
-      "cameraOdometry": ["liveLocationKalman"], "gnssMeasurements": [],
+      "cameraOdometry": ["liveLocationKalman"],
       "sensorEvents": [], "gpsLocationExternal": [], "liveCalibration": [], "carState": [],
     },
     ignore=["logMonoTime", "valid"],
@@ -329,17 +329,6 @@ CONFIGS = [
     ignore=["logMonoTime"],
     init_callback=None,
     should_recv_callback=ublox_rcv_callback,
-    tolerance=None,
-    fake_pubsubmaster=False,
-  ),
-  ProcessConfig(
-    proc_name="laikad",
-    pub_sub={
-      "ubloxGnss": ["gnssMeasurements"],
-    },
-    ignore=["logMonoTime"],
-    init_callback=None,
-    should_recv_callback=None,
     tolerance=None,
     fake_pubsubmaster=False,
   ),
