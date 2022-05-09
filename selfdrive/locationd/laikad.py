@@ -77,6 +77,5 @@ def main():
       pm.send('gnssMeasurements', msg)
 
 
-
 if __name__ == "__main__":
   main()

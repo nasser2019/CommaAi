@@ -290,7 +290,8 @@ inline void Localizer::handle_gnss_constellation(double current_time, Constellat
   this->kf->predict_and_observe(current_time, observation_rate, pseudo_rate_zs, pseudo_rate_Rs, satpos_satvels);
 }
 
-void Localizer::handle_gnss_measurements(double current_time, const cereal::GnssMeasurements::Reader& log) {
+void Localizer::handle_gnss_measurements(const cereal::GnssMeasurements::Reader& log) {
+  auto time = log.getUbloxMonoTime();
   std::vector<cereal::GnssMeasurements::CorrectedMeasurement::Reader> meas_gps;
   std::vector<cereal::GnssMeasurements::CorrectedMeasurement::Reader> meas_glonass;
   for (cereal::GnssMeasurements::CorrectedMeasurement::Reader meas: log.getCorrectedMeasurements()) {
@@ -301,8 +302,8 @@ void Localizer::handle_gnss_measurements(double current_time, const cereal::Gnss
     else if (c_id == ConstellationId::GLONASS) meas_glonass.push_back(meas);
   }
 
-  if (meas_gps.size() > 0) handle_gnss_constellation(current_time, ConstellationId::GPS, meas_gps);
-  if (meas_glonass.size() > 0) handle_gnss_constellation(current_time, ConstellationId::GLONASS, meas_glonass);
+  if (meas_gps.size() > 0) handle_gnss_constellation(time, ConstellationId::GPS, meas_gps);
+  if (meas_glonass.size() > 0) handle_gnss_constellation(time, ConstellationId::GLONASS, meas_glonass);
 }
 
 void Localizer::handle_gps(double current_time, const cereal::GpsLocationData::Reader& log) {
@@ -497,7 +498,7 @@ void Localizer::handle_msg(const cereal::Event::Reader& log) {
   } else if (log.isLiveCalibration()) {
     this->handle_live_calib(t, log.getLiveCalibration());
   } else if (log.isGnssMeasurements()) {
-    this->handle_gnss_measurements(t, log.getGnssMeasurements());
+    this->handle_gnss_measurements(log.getGnssMeasurements());
   }
   this->finite_check();
   this->update_reset_tracker();
