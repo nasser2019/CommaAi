@@ -48,7 +48,9 @@ class LatControlTorque(LatControl):
       if self.use_steering_angle:
         actual_curvature = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       else:
-        actual_curvature = llk.angularVelocityCalibrated.value[2] / CS.vEgo
+        actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
+        actual_curvature_llk = llk.angularVelocityCalibrated.value[2] / CS.vEgo
+        actual_curvature = interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
       desired_lateral_jerk = desired_curvature_rate * CS.vEgo ** 2
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
@@ -62,10 +64,15 @@ class LatControlTorque(LatControl):
       # convert friction into lateral accel units for feedforward
       friction_compensation = interp(desired_lateral_jerk, [-JERK_THRESHOLD, JERK_THRESHOLD], [-self.friction, self.friction])
       ff += friction_compensation / self.CP.lateralTuning.torque.kf
+
+      # Prevent integrator windup at very low speed
+      # or when steering is limited
+      freeze_integrator = CS.steeringRateLimited or CS.vEgo < 5
+
       output_torque = self.pid.update(error,
                                       override=CS.steeringPressed, feedforward=ff,
                                       speed=CS.vEgo,
-                                      freeze_integrator=CS.steeringRateLimited)
+                                      freeze_integrator=freeze_integrator)
 
       pid_log.active = True
       pid_log.p = self.pid.p
