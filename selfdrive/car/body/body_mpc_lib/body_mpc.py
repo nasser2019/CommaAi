@@ -52,7 +52,7 @@ def gen_body_model():
   r = .163/2  # wheel radius
   cog_l = .242 - r  # cog above axle
   J = 0.5 * mw * (r**2)  # Mass Moment of Inertia of wheel, modeled as solid cylinder
-  I2 = 0.5 * mw * (2 * cog_l**2)  # Mass Moment of Inertia of pendulum, modeled as hollow cylinder with wall radius cog_l
+  I2 = 0.5 * mt * (2 * cog_l**2)  # Mass Moment of Inertia of pendulum, modeled as hollow cylinder with wall radius cog_l
   a = mb * cog_l
   Io = I2 + mb * cog_l**2
   mo = mt + J / (r**2)

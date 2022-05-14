@@ -51,7 +51,7 @@ class CarController():
       speed_diff_desired = -CC.actuators.steer
 
       speed_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl + CS.out.wheelSpeeds.fr) / 2.
-      x0 = np.array([0.0, speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
+      x0 = np.array([0.0, -speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
       self.body_mpc.run(x0)
 
 
