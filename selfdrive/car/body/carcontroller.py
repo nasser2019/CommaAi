@@ -59,6 +59,7 @@ class CarController():
       torque_nm = self.body_mpc.u_sol[0,0]
       #torque = interp(torque_nm, TORQUE_BP, TORQUE_VAL)
       torque = 0.5 * (torque_nm * 50 / 0.44)
+      print(torque)
 
       speed_diff_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl - CS.out.wheelSpeeds.fr)
       turn_error = speed_diff_measured - speed_diff_desired

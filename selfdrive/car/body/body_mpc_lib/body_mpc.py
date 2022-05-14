@@ -171,7 +171,6 @@ class BodyMpc():
 
     t = sec_since_boot()
     self.solution_status = self.solver.solve()
-    print(self.solution_status)
     self.solve_time = sec_since_boot() - t
 
     for i in range(N+1):
