@@ -2,6 +2,7 @@ import numpy as np
 
 from common.realtime import DT_CTRL
 from selfdrive.car.body import bodycan
+from selfdrive.car.body.body_mpc_lib.body_mpc import BodyMpc
 from opendbc.can.packer import CANPacker
 from selfdrive.car.body.values import SPEED_FROM_RPM
 from selfdrive.controls.lib.pid import PIDController
@@ -21,7 +22,9 @@ class CarController():
 
     # Speed, balance and turn PIDs
     self.speed_pid = PIDController(0.115, k_i=0.23, rate=1/DT_CTRL)
-    self.balance_pid = PIDController(1300, k_i=0, k_d=280, rate=1/DT_CTRL)
+    self.body_mpc = BodyMpc()
+    self.body_mpc.set_weights(1.0, 1.0, 1.0)
+
     self.turn_pid = PIDController(110, k_i=11.5, rate=1/DT_CTRL)
 
     self.torque_r_filtered = 0.
@@ -44,20 +47,18 @@ class CarController():
     if CC.enabled and llk_valid:
       # Read these from the joystick
       # TODO: this isn't acceleration, okay?
-      speed_desired = CC.actuators.accel / 5.
+      #speed_desired = CC.actuators.accel / 5.
       speed_diff_desired = -CC.actuators.steer
 
       speed_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl + CS.out.wheelSpeeds.fr) / 2.
-      speed_error = speed_desired - speed_measured
+      x0 = np.array([0.0, speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
+      self.body_mpc.run(x0)
 
-      freeze_integrator = ((speed_error < 0 and self.speed_pid.error_integral <= -MAX_POS_INTEGRATOR) or
-                           (speed_error > 0 and self.speed_pid.error_integral >= MAX_POS_INTEGRATOR))
-      angle_setpoint = self.speed_pid.update(speed_error, freeze_integrator=freeze_integrator)
 
       # Clip angle error, this is enough to get up from stands
-      angle_error = np.clip((-CC.orientationNED[1]) - angle_setpoint, -MAX_ANGLE_ERROR, MAX_ANGLE_ERROR)
-      angle_error_rate = np.clip(-CC.angularVelocity[1], -1., 1.)
-      torque = self.balance_pid.update(angle_error, error_rate=angle_error_rate)
+      torque_nm = self.body_mpc.u_sol[0,0]
+      #torque = interp(torque_nm, TORQUE_BP, TORQUE_VAL)
+      torque = 0.5 * (torque_nm * 50 / 0.44)
 
       speed_diff_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl - CS.out.wheelSpeeds.fr)
       turn_error = speed_diff_measured - speed_diff_desired
