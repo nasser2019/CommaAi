@@ -29,6 +29,7 @@ class CarController():
 
     self.torque_r_filtered = 0.
     self.torque_l_filtered = 0.
+    self.position = 0.0
 
   @staticmethod
   def deadband_filter(torque, deadband):
@@ -51,7 +52,8 @@ class CarController():
       speed_diff_desired = -CC.actuators.steer
 
       speed_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl + CS.out.wheelSpeeds.fr) / 2.
-      x0 = np.array([0.0, -speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
+      self.position += speed_measured * DT_CTRL
+      x0 = np.array([-self.position, -speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
       self.body_mpc.run(x0)
 
 

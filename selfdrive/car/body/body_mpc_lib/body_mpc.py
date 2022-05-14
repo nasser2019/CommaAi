@@ -17,6 +17,7 @@ LAT_MPC_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPORT_DIR = os.path.join(LAT_MPC_DIR, "c_generated_code")
 JSON_FILE = os.path.join(LAT_MPC_DIR, "acados_ocp_body.json")
 X_DIM = 4
+Y_DIM = 3
 #P_DIM = 2
 MODEL_NAME = 'body'
 ACADOS_SOLVER_TYPE = 'SQP_RTI'
@@ -83,22 +84,21 @@ def gen_body_ocp():
   ocp.cost.cost_type = 'NONLINEAR_LS'
   ocp.cost.cost_type_e = 'NONLINEAR_LS'
 
-  Q = np.diag([0.0, 0.0])
-  QR = np.diag([0.0, 0.0, 0.0])
+  Q = np.diag(np.zeros(Y_DIM))
+  QR = np.diag(np.zeros(Y_DIM + 1))
 
   ocp.cost.W = QR
   ocp.cost.W_e = Q
 
-  v_ego, theta = ocp.model.x[1], ocp.model.x[2]
+  x_ego, v_ego, theta_rate = ocp.model.x[0], ocp.model.x[1], ocp.model.x[2]
   torque= ocp.model.u[0]
 
   #ocp.parameter_values = np.zeros((P_DIM, ))
 
-  ocp.cost.yref = np.zeros((3, ))
-  ocp.cost.yref_e = np.zeros((2, ))
-  # TODO hacky weights to keep behavior the same
-  ocp.model.cost_y_expr = vertcat(v_ego, theta, torque)
-  ocp.model.cost_y_expr_e = vertcat(v_ego, theta)
+  ocp.cost.yref = np.zeros((4, ))
+  ocp.cost.yref_e = np.zeros((3, ))
+  ocp.model.cost_y_expr = vertcat(x_ego, v_ego, theta_rate, torque)
+  ocp.model.cost_y_expr_e = vertcat(x_ego, v_ego, theta_rate)
 
   # set constraints
   ocp.constraints.constr_type = 'BGH'
@@ -147,10 +147,10 @@ class BodyMpc():
     self.cost = 0
 
   def set_weights(self, path_weight, heading_weight, steer_rate_weight):
-    W = np.asfortranarray(np.diag([1.0, 1.0, 1.0]))
+    W = np.asfortranarray(np.diag([1.0, 1.0, 1.0, 0.1]))
     for i in range(N):
       self.solver.cost_set(i, 'W', W)
-    self.solver.cost_set(N, 'W', W[:2,:2])
+    self.solver.cost_set(N, 'W', W[:3,:3])
 
   def run(self, x0):
     x0_cp = np.copy(x0)
@@ -160,6 +160,7 @@ class BodyMpc():
     self.yref[:,0] = 0.0
     self.yref[:,1] = 0.0
     self.yref[:,2] = 0.0
+    self.yref[:,3] = 0.0
     #v_ego = p_cp[0]
     # rotation_radius = p_cp[1]
     #self.yref[:,1] = heading_pts*(v_ego+5.0)
@@ -167,7 +168,7 @@ class BodyMpc():
       self.solver.cost_set(i, "yref", self.yref[i])
       #self.solver.set(i, "p", p_cp)
     #self.solver.set(N, "p", p_cp)
-    self.solver.cost_set(N, "yref", self.yref[N][:2])
+    self.solver.cost_set(N, "yref", self.yref[N][:3])
 
     t = sec_since_boot()
     self.solution_status = self.solver.solve()
