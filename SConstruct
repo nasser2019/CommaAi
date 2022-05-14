@@ -391,6 +391,8 @@ SConscript(['common/transformations/SConscript'])
 SConscript(['selfdrive/camerad/SConscript'])
 SConscript(['selfdrive/modeld/SConscript'])
 
+SConscript(['selfdrive/car/body/body_mpc_lib/SConscript'])
+
 SConscript(['selfdrive/controls/lib/cluster/SConscript'])
 SConscript(['selfdrive/controls/lib/lateral_mpc_lib/SConscript'])
 SConscript(['selfdrive/controls/lib/longitudinal_mpc_lib/SConscript'])
