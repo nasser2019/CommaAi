@@ -28,7 +28,6 @@
 #define CAMERA_ID_IMX390 9
 #define CAMERA_ID_MAX 10
 
-const int UI_BUF_COUNT = 4;
 const int YUV_BUFFER_COUNT = 40;
 
 enum CameraType {
@@ -102,7 +101,7 @@ private:
   Debayer *debayer = nullptr;
   std::unique_ptr<Rgb2Yuv> rgb2yuv;
 
-  VisionStreamType rgb_type, yuv_type;
+  VisionStreamType yuv_type;
 
   int cur_buf_idx;
 
@@ -114,7 +113,6 @@ private:
 public:
   cl_command_queue q;
   FrameMetadata cur_frame_data;
-  VisionBuf *cur_rgb_buf;
   VisionBuf *cur_yuv_buf;
   VisionBuf *cur_camera_buf;
   std::unique_ptr<VisionBuf[]> camera_bufs;
@@ -125,7 +123,7 @@ public:
 
   CameraBuf() = default;
   ~CameraBuf();
-  void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType rgb_type, VisionStreamType yuv_type, release_cb release_callback=nullptr);
+  void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType yuv_type, release_cb release_callback=nullptr);
   bool acquire();
   void release();
   void queue(size_t buf_idx);
