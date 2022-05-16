@@ -32,7 +32,6 @@ const size_t FRAME_HEIGHT = 1208;
 const size_t FRAME_STRIDE = 2896;  // for 12 bit output. 1928 * 12 / 8 + 4 (alignment)
 
 const size_t AR0231_REGISTERS_HEIGHT = 2;
-const size_t AR0231_STATS_HEIGHT = 2;
 
 const int MIPI_SETTLE_CNT = 33;  // Calculated by camera_freqs.py
 
@@ -41,11 +40,11 @@ CameraInfo cameras_supported[CAMERA_ID_MAX] = {
     .frame_width = FRAME_WIDTH,
     .frame_height = FRAME_HEIGHT,
     .frame_stride = FRAME_STRIDE,
-    .extra_height = AR0231_REGISTERS_HEIGHT + AR0231_STATS_HEIGHT,
+    .extra_height = AR0231_REGISTERS_HEIGHT,
 
     .registers_offset = 0,
     .frame_offset = AR0231_REGISTERS_HEIGHT,
-    .stats_offset = AR0231_REGISTERS_HEIGHT + FRAME_HEIGHT,
+    .stats_offset = -1,
 
     .bayer = true,
     .bayer_flip = 1,
@@ -1239,7 +1238,7 @@ static void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) 
   if (env_send_driver) {
     framed.setImage(get_frame_image(&c->buf));
   }
-  if (c->camera_id == CAMERA_ID_AR0231) {
+  if (c->camera_id == CAMERA_ID_AR0231 && false) {
     ar0231_process_registers(s, c, framed);
   }
   s->pm->send("driverCameraState", msg);
@@ -1262,7 +1261,7 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
     LOGT(c->buf.cur_frame_data.frame_id, "%s: Transformed", "RoadCamera");
   }
 
-  if (c->camera_id == CAMERA_ID_AR0231) {
+  if (c->camera_id == CAMERA_ID_AR0231 && false) {
     ar0231_process_registers(s, c, framed);
   }
 
