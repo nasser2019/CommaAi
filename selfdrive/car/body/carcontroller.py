@@ -30,6 +30,7 @@ class CarController():
     self.torque_r_filtered = 0.
     self.torque_l_filtered = 0.
     self.position = 0.0
+    self.K = np.array([[-1., -1.97704225, -12.14067369, -2.46245156]])
 
   @staticmethod
   def deadband_filter(torque, deadband):
@@ -53,12 +54,8 @@ class CarController():
 
       speed_measured = SPEED_FROM_RPM * (CS.out.wheelSpeeds.fl + CS.out.wheelSpeeds.fr) / 2.
       self.position += speed_measured * DT_CTRL
-      x0 = np.array([-self.position, -speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
-      self.body_mpc.run(x0)
-
-
-      # Clip angle error, this is enough to get up from stands
-      torque_nm = self.body_mpc.u_sol[0,0]
+      x = np.array([-self.position, -speed_measured, -CC.orientationNED[1], -CC.angularVelocity[1]])
+      torque_nm = -self.K.dot(x)[0,0]
       #torque = interp(torque_nm, TORQUE_BP, TORQUE_VAL)
       torque = 0.5 * (torque_nm * 50 / 0.44)
       print(torque)
