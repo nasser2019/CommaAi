@@ -48,6 +48,7 @@ const bool env_disable_wide_road = getenv("DISABLE_WIDE_ROAD") != NULL;
 const bool env_disable_driver = getenv("DISABLE_DRIVER") != NULL;
 const bool env_debug_frames = getenv("DEBUG_FRAMES") != NULL;
 const bool env_log_raw_frames = getenv("LOG_RAW_FRAMES") != NULL;
+const bool env_enable_stats = getenv("ENABLE_STATS") != NULL;
 
 typedef void (*release_cb)(void *cookie, int buf_idx);
 
@@ -58,6 +59,7 @@ typedef struct CameraInfo {
   int bayer_flip;
   bool hdr;
   uint32_t frame_offset = 0;
+  uint32_t isp_offset = 0;
   uint32_t extra_height = 0;
   int registers_offset = -1;
   int stats_offset = -1;
