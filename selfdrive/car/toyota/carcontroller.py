@@ -111,6 +111,11 @@ class CarController:
       can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
       self.gas = interceptor_gas_cmd
 
+    # tester present - w/ no response (keeps radar disabled)
+    if self.CP.openpilotLongitudinalControl and self.CP.enableDsu:
+      if self.frame % 100 == 0:  # TODO: figure out rate
+        can_sends.append([0x791, 0, b"\x02\x3E\x80\x00\x00\x00\x00\x00", 0])
+
     # ui mesg is at 1Hz but we send asap if:
     # - there is something to display
     # - there is something to stop displaying
