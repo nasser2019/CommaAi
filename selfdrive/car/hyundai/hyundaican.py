@@ -80,18 +80,33 @@ def create_lfahda_mfc(packer, enabled, hda_set_speed=0):
 
 def create_acc_commands(packer, enabled, accel, jerk, idx, lead_visible, set_speed, stopping, gas_pressed):
   commands = []
+  test_better_braking = True  # toggle to compare old and new signal behavior
 
-  scc11_values = {
-    "MainMode_ACC": 1,
-    "TauGapSet": 4,
-    "VSetDis": set_speed if enabled else 0,
-    "AliveCounterACC": idx % 0x10,
-    "ObjValid": 1 if lead_visible else 0,
-    "ACC_ObjStatus": 1 if lead_visible else 0,
-    "ACC_ObjLatPos": 0,
-    "ACC_ObjRelSpd": 0,
-    "ACC_ObjDist": 0,
-  }
+  if test_better_braking:
+    scc11_values = {
+      "MainMode_ACC": 1,
+      "TauGapSet": 4,
+      "VSetDis": set_speed if enabled else 0,
+      "AliveCounterACC": idx % 0x10,
+      "ObjValid": 1,  # TODO: either this or below bit should follow decel command better
+      "ACC_ObjStatus": 1,
+      "ACC_ObjLatPos": 0,  # seems like 0 is the best value
+      # TODO: experiment with rel speed, brake controller probably takes all three into account (up and below signals)
+      "ACC_ObjRelSpd": 0,
+      "ACC_ObjDist": 204.7,  # might need to be 1, but try the default SCC value
+    }
+  else:
+    scc11_values = {
+      "MainMode_ACC": 1,
+      "TauGapSet": 4,
+      "VSetDis": set_speed if enabled else 0,
+      "AliveCounterACC": idx % 0x10,
+      "ObjValid": 1 if lead_visible else 0,
+      "ACC_ObjStatus": 1 if lead_visible else 0,
+      "ACC_ObjLatPos": 0,
+      "ACC_ObjRelSpd": 0,
+      "ACC_ObjDist": 0,
+    }
   commands.append(packer.make_can_msg("SCC11", 0, scc11_values))
 
   scc12_values = {
@@ -106,6 +121,7 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, lead_visible, set_spe
 
   commands.append(packer.make_can_msg("SCC12", 0, scc12_values))
 
+  # TODO: some older cars do not have an SCC14 signal, so this might not have a huge effect
   scc14_values = {
     "ComfortBandUpper": 0.0, # stock usually is 0 but sometimes uses higher values
     "ComfortBandLower": 0.0, # stock usually is 0 but sometimes uses higher values

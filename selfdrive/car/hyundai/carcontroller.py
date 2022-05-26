@@ -46,6 +46,7 @@ class CarController:
     self.steer_rate_limited = False
     self.last_button_frame = 0
     self.accel = 0
+    self.enabled_frames = 0
 
   def update(self, CC, CS):
     actuators = CC.actuators
@@ -104,20 +105,24 @@ class CarController:
             self.last_button_frame = self.frame
 
       if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
-        accel = actuators.accel
-        jerk = 0
+        # accel = actuators.accel
 
         if CC.longActive:
-          jerk = clip(2.0 * (accel - CS.out.aEgo), -12.7, 12.7)
-          if accel < 0:
-            accel = interp(accel - CS.out.aEgo, [-1.0, -0.5], [2 * accel, accel])
+          self.enabled_frames += 1
+          if self.enabled_frames < 200:
+            accel = 1.  # TODO: also experiment with 0 for steady state cruising, then large decel
+          else:
+            accel = -2.
+        else:
+          self.enabled_frames = 0
 
+
+        jerk = clip(2.0 * (accel - CS.out.aEgo), -12.7, 12.7) if CC.longActive else 0.
         accel = clip(accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
 
-        lead_visible = False
         stopping = actuators.longControlState == LongCtrlState.stopping
         set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_MPH if CS.clu11["CF_Clu_SPEED_UNIT"] == 1 else CV.MS_TO_KPH)
-        can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2), lead_visible,
+        can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2), hud_control.leadVisible,
                                              set_speed_in_units, stopping, CS.out.gasPressed))
         self.accel = accel
 
