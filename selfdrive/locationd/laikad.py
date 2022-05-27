@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 
 import numpy as np
@@ -11,6 +11,8 @@ from numpy.linalg import linalg
 
 from cereal import log, messaging
 from laika import AstroDog
+from laika.astro_dog import EphemData
+from laika.constants import SECS_IN_HR, SECS_IN_MIN
 from laika.ephemeris import convert_ublox_ephem
 from laika.gps_time import GPSTime
 from laika.helpers import ConstellationId
@@ -26,8 +28,8 @@ MAX_TIME_GAP = 10
 
 class Laikad:
 
-  def __init__(self, use_internet):
-    self.astro_dog = AstroDog(use_internet=use_internet, pull_ephems=['Orbit', 'Nav'])
+  def __init__(self, auto_update, pull_ephems=(EphemData.ORBIT, EphemData.NAV)):
+    self.astro_dog = AstroDog(auto_update=auto_update, pull_ephems=pull_ephems)
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
 
@@ -46,12 +48,13 @@ class Laikad:
       t = ublox_mono_time * 1e-9
       self.update_localizer(pos_fix, t, corrected_measurements)
       localizer_valid = self.localizer_valid(t)
+      
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
 
-      pos_std = float(np.linalg.norm(self.gnss_kf.P[GStates.ECEF_POS]))
-      vel_std = float(np.linalg.norm(self.gnss_kf.P[GStates.ECEF_VELOCITY]))
-
+      pos_std = self.gnss_kf.P[GStates.ECEF_POS].flatten().tolist()
+      vel_std = self.gnss_kf.P[GStates.ECEF_VELOCITY].flatten().tolist()
+      
       bearing_deg, bearing_std = get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std)
 
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
@@ -61,7 +64,7 @@ class Laikad:
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
         "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=localizer_valid),
-        "bearingDeg": measurement_msg(value=[bearing_deg], std=bearing_std, valid=localizer_valid),
+        "bearingDeg": measurement_msg(value=[bearing_deg], std=[bearing_std], valid=localizer_valid),
         "ubloxMonoTime": ublox_mono_time,
         "correctedMeasurements": meas_msgs
       }
@@ -107,16 +110,17 @@ class Laikad:
 
   def orbit_thread(self, end_event: threading.Event):
     while not end_event.is_set():
-      self.fetch_orbits()
-      time.sleep(30)
+      t = GPSTime.from_datetime(datetime.utcnow())
+      self.fetch_orbits(t)
+      time.sleep(SECS_IN_MIN)
 
-  def fetch_orbits(self):
-    dog = self.astro_dog
-    t = GPSTime.from_datetime(datetime.utcnow() + timedelta(minutes=1))
-    if self.latest_epoch_fetched < t:
-      orbit_ephems = dog.download_parse_orbit_data(t)
-      self.latest_epoch_fetched = max(orbit_ephems, key=lambda e: e.epoch).epoch
-      dog.add_ephems(orbit_ephems, dog.orbits)
+  def fetch_orbits(self, t: GPSTime):
+    if self.latest_epoch_fetched < t + SECS_IN_MIN:
+      orbit_ephems = self.astro_dog.download_parse_orbit_data(t, skip_before_epoch=t-SECS_IN_HR)
+      if len(orbit_ephems) > 0:
+        self.astro_dog.add_ephems(orbit_ephems, self.astro_dog.orbits)
+        latest_orbit = max(orbit_ephems, key=lambda e: e.epoch) # type: ignore
+        self.latest_epoch_fetched = latest_orbit.epoch
 
 
 def create_measurement_msg(meas: GNSSMeasurement):
@@ -154,7 +158,7 @@ def get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std):
 
   ned_vel = np.einsum('ij,j ->i', converter.ned_from_ecef_matrix, ecef_vel)
   bearing = np.arctan2(ned_vel[1], ned_vel[0])
-  bearing_std = np.arctan2(vel_std, np.linalg.norm(ned_vel))
+  bearing_std = np.arctan2(np.linalg.norm(vel_std), np.linalg.norm(ned_vel))
   return float(np.rad2deg(bearing)), float(bearing_std)
 
 
@@ -162,7 +166,7 @@ def main():
   sm = messaging.SubMaster(['ubloxGnss'])
   pm = messaging.PubMaster(['gnssMeasurements'])
 
-  laikad = Laikad(use_internet=True)
+  laikad = Laikad(auto_update=False)
 
   end_event = threading.Event()
   threading.Thread(target=laikad.orbit_thread, args=(end_event,)).start()
