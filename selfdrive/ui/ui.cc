@@ -241,9 +241,22 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   prime_type = std::atoi(params.get("PrimeType").c_str());
 
   // update timer
-  timer = new QTimer(this);
-  QObject::connect(timer, &QTimer::timeout, this, &UIState::update);
-  timer->start(1000 / UI_FREQ);
+//  timer = new QTimer(this);
+//  QObject::connect(timer, &QTimer::timeout, this, &UIState::update);
+//  timer->start(1000 / UI_FREQ);
+  poll_thread = new QThread();
+  connect(poll_thread, &QThread::started, [=]() { pollThread(); });
+  connect(poll_thread, &QThread::finished, poll_thread, &QObject::deleteLater);
+  connect(this, &UIState::pollThreadUpdate, this, &UIState::update);
+  poll_thread->start();
+}
+
+void UIState::pollThread() {
+  SubMaster sm_poll({"modelV2"}, {"modelV2"});
+  while (!QThread::currentThread()->isInterruptionRequested()) {
+    sm_poll.update(1000 / UI_FREQ);
+    emit pollThreadUpdate();
+  }
 }
 
 void UIState::update() {

@@ -127,6 +127,7 @@ public:
   int fb_w = 0, fb_h = 0;
 
   std::unique_ptr<SubMaster> sm;
+  QThread *poll_thread = nullptr;
 
   UIStatus status;
   UIScene scene = {};
@@ -140,6 +141,7 @@ public:
 signals:
   void uiUpdate(const UIState &s);
   void offroadTransition(bool offroad);
+  void pollThreadUpdate();
 
 private slots:
   void update();
@@ -147,6 +149,7 @@ private slots:
 private:
   QTimer *timer;
   bool started_prev = false;
+  void pollThread();
 };
 
 UIState *uiState();

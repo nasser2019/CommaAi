@@ -216,10 +216,13 @@ void CameraViewWidget::paintGL() {
 
   if (frames.empty()) return;
 
-  int frame_idx;
-  for (frame_idx = 0; frame_idx < frames.size() - 1; frame_idx++) {
-    if (frames[frame_idx].first == draw_frame_id) break;
-  }
+  int frame_idx = frames.size() - 1;
+//  for (frame_idx = 0; frame_idx < frames.size() - 1; frame_idx++) {
+//    if (frames[frame_idx].first == draw_frame_id) break;
+//  }
+  qDebug() << "Model frame id: " << draw_frame_id;
+  qDebug() << "Camera frame id:" << frames[frame_idx].first;
+  qDebug() << "\n";
   VisionBuf *frame = frames[frame_idx].second;
 
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

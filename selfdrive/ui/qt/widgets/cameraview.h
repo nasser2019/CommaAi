@@ -10,7 +10,7 @@
 #include "selfdrive/camerad/cameras/camera_common.h"
 #include "selfdrive/ui/ui.h"
 
-const int FRAME_BUFFER_SIZE = 5;
+const int FRAME_BUFFER_SIZE = 1;
 static_assert(FRAME_BUFFER_SIZE <= YUV_BUFFER_COUNT);
 
 class CameraViewWidget : public QOpenGLWidget, protected QOpenGLFunctions {
