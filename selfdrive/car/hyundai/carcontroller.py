@@ -46,6 +46,7 @@ class CarController:
     self.steer_rate_limited = False
     self.last_button_frame = 0
     self.accel = 0
+    self.enabled_frames = 0
 
   def update(self, CC, CS):
     actuators = CC.actuators
@@ -103,22 +104,31 @@ class CarController:
             can_sends.extend([hyundaican.create_clu11(self.packer, self.frame, CS.clu11, Buttons.RES_ACCEL)] * 25)
             self.last_button_frame = self.frame
 
+      if CC.longActive:
+        self.enabled_frames += 1
+      else:
+        self.enabled_frames = 0
+
       if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
-        accel = actuators.accel
+        self.accel = 0  # actuators.accel
         jerk = 0
 
         if CC.longActive:
-          jerk = clip(2.0 * (accel - CS.out.aEgo), -12.7, 12.7)
-          if accel < 0:
-            accel = interp(accel - CS.out.aEgo, [-1.0, -0.5], [2 * accel, accel])
+          jerk = clip(2.0 * (self.accel - CS.out.aEgo), -12.7, 12.7)
+          # this is approximated from a user drive where the car undershot reaching -1.2
+          if self.enabled_frames < 300:  # 0-3 seconds
+            self.accel = interp(self.enabled_frames, [0, 300], [0.25, -0.3])
+          elif self.enabled_frames < 600:  # 3-6 seconds
+            self.accel = interp(self.enabled_frames, [300, 600], [-0.3, -1.2])
+          else:  # 6-+ seconds
+            self.accel = interp(self.enabled_frames, [600, 800], [-1.2, -2.5])
 
-        accel = clip(accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
+        self.accel = clip(self.accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
 
         stopping = actuators.longControlState == LongCtrlState.stopping
         set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_MPH if CS.clu11["CF_Clu_SPEED_UNIT"] == 1 else CV.MS_TO_KPH)
-        can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2),
+        can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, self.accel, jerk, int(self.frame / 2),
                                                         hud_control.leadVisible, set_speed_in_units, stopping, CS.out.gasPressed))
-        self.accel = accel
 
       # 20 Hz LFA MFA message
       if self.frame % 5 == 0 and self.car_fingerprint in (CAR.SONATA, CAR.PALISADE, CAR.IONIQ, CAR.KIA_NIRO_EV, CAR.KIA_NIRO_HEV_2021,
