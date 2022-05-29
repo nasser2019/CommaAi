@@ -1,4 +1,5 @@
 import crcmod
+import os
 from selfdrive.car.hyundai.values import CAR, CHECKSUM
 
 hyundai_checksum = crcmod.mkCrcFun(0x11D, initCrc=0xFD, rev=False, xorOut=0xdf)
@@ -81,16 +82,18 @@ def create_lfahda_mfc(packer, enabled, hda_set_speed=0):
 def create_acc_commands(packer, enabled, accel, jerk, idx, lead_visible, set_speed, stopping, gas_pressed):
   commands = []
 
+  lead_bits = os.path.exists('/data/lead_bits')
+
   scc11_values = {
     "MainMode_ACC": 1,
     "TauGapSet": 4,
     "VSetDis": set_speed if enabled else 0,
     "AliveCounterACC": idx % 0x10,
-    "ObjValid": 0,  # TODO: these two bits may allow for better longitudinal control
-    "ACC_ObjStatus": 0,
+    "ObjValid": 1 if lead_bits else 0,  # TODO: these two bits may allow for better longitudinal control
+    "ACC_ObjStatus": 1 if lead_bits else 0,
     "ACC_ObjLatPos": 0,
     "ACC_ObjRelSpd": 0,
-    "ACC_ObjDist": 0,
+    "ACC_ObjDist": 1 if lead_bits else 0,
   }
   commands.append(packer.make_can_msg("SCC11", 0, scc11_values))
 
@@ -106,10 +109,12 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, lead_visible, set_spe
 
   commands.append(packer.make_can_msg("SCC12", 0, scc12_values))
 
+  jerk_changes = os.path.exists('/data/jerk_changes')
+
   scc14_values = {
     "ComfortBandUpper": 0.0, # stock usually is 0 but sometimes uses higher values
     "ComfortBandLower": 0.0, # stock usually is 0 but sometimes uses higher values
-    "JerkUpperLimit": max(jerk, 1.0) if not stopping else 0, # stock usually is 1.0 but sometimes uses higher values
+    "JerkUpperLimit": max(jerk, 0 if jerk_changes else 1.0) if not stopping else 0, # stock usually is 1.0 but sometimes uses higher values
     "JerkLowerLimit": max(-jerk, 1.0), # stock usually is 0.5 but sometimes uses higher values
     "ACCMode": 2 if enabled and gas_pressed else 1 if enabled else 4, # stock will always be 4 instead of 0 after first disengage
     "ObjGap": 2 if lead_visible else 0, # 5: >30, m, 4: 25-30 m, 3: 20-25 m, 2: < 20 m, 0: no lead
