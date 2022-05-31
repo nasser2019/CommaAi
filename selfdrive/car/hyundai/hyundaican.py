@@ -89,7 +89,7 @@ def create_acc_commands(packer, enabled, accel, jerk, idx, lead_visible, set_spe
     "ObjValid": 1,  # TODO: these two bits may allow for better longitudinal control
     "ACC_ObjStatus": 1,
     "ACC_ObjLatPos": 0,
-    "ACC_ObjRelSpd": jerk * 1.5,
+    "ACC_ObjRelSpd": jerk * 2,
     "ACC_ObjDist": 1,
   }
   commands.append(packer.make_can_msg("SCC11", 0, scc11_values))
