@@ -43,7 +43,7 @@ class Laikad:
       new_meas = read_raw_ublox(report)
       self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       measurements = process_measurements(new_meas, self.astro_dog)
-      pos_fix = calc_pos_fix(measurements, min_measurements=6)
+      pos_fix = calc_pos_fix(measurements, min_measurements=4)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
