@@ -27,7 +27,7 @@ MAX_TIME_GAP = 10
 
 class Laikad:
 
-  def __init__(self, auto_update, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
+  def __init__(self, auto_update=False, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
     os.environ["NASA_USERNAME"] = "gkoning"
     os.environ["NASA_PASSWORD"] = "u&+9A3L+RA6K6z8"
     # Currently GLONASS is not supported for real time orbit or nav data.
@@ -175,7 +175,7 @@ def main():
   sm = messaging.SubMaster(['ubloxGnss'])
   pm = messaging.PubMaster(['gnssMeasurements'])
 
-  laikad = Laikad(auto_update=False)
+  laikad = Laikad()
 
   end_event = threading.Event()
   threading.Thread(target=laikad.orbit_thread, args=(end_event,)).start()
