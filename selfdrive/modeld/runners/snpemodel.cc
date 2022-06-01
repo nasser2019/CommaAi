@@ -38,15 +38,21 @@ SNPEModel::SNPEModel(const char *path, float *loutput, size_t loutput_size, int 
 
   // create model runner
   zdl::SNPE::SNPEBuilder snpeBuilder(container.get());
+  zdl::DlSystem::StringList outputs;
+  outputs.append("plan");
+  outputs.append("hidden_state");
+  outputs.append("desire_state");
+  outputs.append("lead");
+  outputs.append("pose");
   while (!snpe) {
 #ifdef QCOM2
-    snpe = snpeBuilder.setOutputLayers({})
+    snpe = snpeBuilder.setOutputTensors(outputs)
                       .setRuntimeProcessor(Runtime)
                       .setUseUserSuppliedBuffers(true)
                       .setPerformanceProfile(zdl::DlSystem::PerformanceProfile_t::HIGH_PERFORMANCE)
                       .build();
 #else
-    snpe = snpeBuilder.setOutputLayers({})
+    snpe = snpeBuilder.setOutputTensors(outputs)
                       .setUseUserSuppliedBuffers(true)
                       .setPerformanceProfile(zdl::DlSystem::PerformanceProfile_t::HIGH_PERFORMANCE)
                       .build();
@@ -64,10 +70,13 @@ SNPEModel::SNPEModel(const char *path, float *loutput, size_t loutput_size, int 
   const auto &strListo_opt = snpe->getOutputTensorNames();
   if (!strListo_opt) throw std::runtime_error("Error obtaining Output tensor names");
   const auto &strListo = *strListo_opt;
-  assert(strListo.size() == 1);
-  const char *output_tensor_name = strListo.at(0);
-
-  printf("model: %s -> %s\n", input_tensor_name, output_tensor_name);
+  // assert(strListo.size() == 5);
+  const char *output_tensor_name;
+  output_tensor_name = strListo.at(0);
+  for (int i = 0; i < strListo.size(); i++) {
+    output_tensor_name = strListo.at(i);
+    printf("model: %s -> %s\n", input_tensor_name, output_tensor_name);
+  }
 
   zdl::DlSystem::UserBufferEncodingFloat userBufferEncodingFloat;
   zdl::DlSystem::IUserBufferFactory& ubFactory = zdl::SNPE::SNPEFactory::getUserBufferFactory();
