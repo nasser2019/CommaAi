@@ -5,7 +5,7 @@ import signal
 import subprocess
 from pathlib import Path
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
@@ -31,16 +31,14 @@ if __name__ == "__main__":
   w.setLayout(layout)
   set_main_window(w)
 
-  ips = subprocess.check_output('hostname -I', shell=True).decode().strip()
-  ips = ips.replace(' ', '   ')
-
   # home page
   home_widget = QWidget()
   home_layout = QVBoxLayout()
   home_widget.setLayout(home_layout)
   home_layout.addStretch(1)
   home_layout.addWidget(QLabel("port 8080"))
-  home_layout.addWidget(QLabel(ips))
+  ip_label = QLabel()
+  home_layout.addWidget(ip_label)
   layout.addWidget(home_widget)
 
   # image widget
@@ -60,9 +58,16 @@ if __name__ == "__main__":
     idx = (idx + 1) % len(imgs)
     img.setPixmap(QPixmap(str(imgs[idx].resolve())))
     layout.setCurrentWidget(img)
-
   img.mouseReleaseEvent = ontouch
   home_widget.mouseReleaseEvent = ontouch
+
+  def updateip():
+    ips = subprocess.check_output('hostname -I', shell=True).decode().strip()
+    ips = ips.replace(' ', '   ')
+    ip_label.setText(ips)
+  timer = QTimer()
+  timer.timeout.connect(updateip)
+  timer.start(1000)
 
   home_widget.setStyleSheet("""
     * {
