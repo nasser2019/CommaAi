@@ -68,7 +68,7 @@ class Laikad:
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
       print("corrected meas", len(meas_msgs))
       dat = messaging.new_message("gnssMeasurements")
-      measurement_msg = log.GnssMeasurements.Measurement.new_message
+      measurement_msg = log.LiveLocationKalman.Measurement.new_message
       print("localizer_valid", localizer_valid)
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
