@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+import os
 import threading
 import time
-from datetime import datetime
 from typing import List
 
 import numpy as np
@@ -28,25 +28,33 @@ MAX_TIME_GAP = 10
 class Laikad:
 
   def __init__(self, auto_update, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
+    os.environ["NASA_USERNAME"] = "gkoning"
+    os.environ["NASA_PASSWORD"] = "u&+9A3L+RA6K6z8"
     # Currently GLONASS is not supported for real time orbit or nav data.
-    self.astro_dog = AstroDog(valid_const=["GPS"], use_internet=auto_update, valid_ephem_types=valid_ephem_types)
+    self.astro_dog = AstroDog(valid_const=["GPS"],
+                              use_internet=auto_update, valid_ephem_types=valid_ephem_types)
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
+    self.latest_time_msg = None  # todo make this better
 
   def process_ublox_msg(self, ublox_msg, ublox_mono_time: int):
     if ublox_msg.which == 'measurementReport':
       report = ublox_msg.measurementReport
       new_meas = read_raw_ublox(report)
+      self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       measurements = process_measurements(new_meas, self.astro_dog)
-      pos_fix = calc_pos_fix(measurements, min_measurements=4)
+      pos_fix = calc_pos_fix(measurements, min_measurements=6)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
+      print("processed meas", len(measurements))
+
       if len(pos_fix) > 0 and linalg.norm(pos_fix[1]) < 100:
         corrected_measurements = correct_measurements(measurements, pos_fix[0][:3], self.astro_dog)
 
       t = ublox_mono_time * 1e-9
       self.update_localizer(pos_fix, t, corrected_measurements)
+      # Todo need to fix localizer valid. It doesnt work after segment is reset
       localizer_valid = self.localizer_valid(t)
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
@@ -58,9 +66,10 @@ class Laikad:
       bearing_deg, bearing_std = get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std)
 
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
-
+      print("corrected meas", len(meas_msgs))
       dat = messaging.new_message("gnssMeasurements")
       measurement_msg = log.GnssMeasurements.Measurement.new_message
+      print("localizer_valid", localizer_valid)
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
         "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=localizer_valid),
@@ -98,7 +107,7 @@ class Laikad:
 
   def localizer_valid(self, t: float):
     filter_time = self.gnss_kf.filter.filter_time
-    return filter_time is not None and (t - filter_time) < MAX_TIME_GAP and all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS]))
+    return filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP and all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS]))
 
   def init_gnss_localizer(self, est_pos):
     x_initial, p_initial_diag = np.copy(GNSSKalman.x_initial), np.copy(np.diagonal(GNSSKalman.P_initial))
@@ -109,14 +118,15 @@ class Laikad:
 
   def orbit_thread(self, end_event: threading.Event):
     while not end_event.is_set():
-      t = GPSTime.from_datetime(datetime.utcnow())
-      self.fetch_orbits(t)
-      time.sleep(SECS_IN_MIN)
+      if self.latest_time_msg:
+        self.fetch_orbits(self.latest_time_msg)
+        time.sleep(SECS_IN_MIN)
 
   def fetch_orbits(self, t: GPSTime):
     if self.latest_epoch_fetched < t + SECS_IN_MIN:
       orbit_ephems = self.astro_dog.download_parse_orbit_data(t, skip_before_epoch=t - 2 * SECS_IN_HR)
       if len(orbit_ephems) > 0:
+        print("downloaded correctly new orbits", len(orbit_ephems))
         self.astro_dog.add_ephems(orbit_ephems, self.astro_dog.orbits)
         latest_orbit = max(orbit_ephems, key=lambda e: e.epoch)  # type: ignore
         self.latest_epoch_fetched = latest_orbit.epoch
@@ -177,6 +187,7 @@ def main():
         ublox_msg = sm['ubloxGnss']
         msg = laikad.process_ublox_msg(ublox_msg, sm.logMonoTime['ubloxGnss'])
         if msg is not None:
+          print("msg sent", msg)
           pm.send('gnssMeasurements', msg)
   except (KeyboardInterrupt, SystemExit):
     end_event.set()
