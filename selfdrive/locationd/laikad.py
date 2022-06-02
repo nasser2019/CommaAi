@@ -27,12 +27,11 @@ MAX_TIME_GAP = 10
 
 class Laikad:
 
-  def __init__(self, auto_update=False, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
+  def __init__(self, valid_const=("GPS", "GLONASS"), auto_update=False, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
     os.environ["NASA_USERNAME"] = "gkoning"
     os.environ["NASA_PASSWORD"] = "u&+9A3L+RA6K6z8"
     # Currently GLONASS is not supported for real time orbit or nav data.
-    self.astro_dog = AstroDog(valid_const=["GPS"],
-                              use_internet=auto_update, valid_ephem_types=valid_ephem_types)
+    self.astro_dog = AstroDog(valid_const=valid_const, use_internet=auto_update, valid_ephem_types=valid_ephem_types)
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
     self.latest_time_msg = None  # todo make this better
