@@ -78,7 +78,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 13.6
       tire_stiffness_factor = 0.7933
       ret.mass = 3300. * CV.LB_TO_KG + STD_CARGO_KG
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_F)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=1.3, FRICTION=0.07)
 
     elif candidate in (CAR.CAMRY, CAR.CAMRYH, CAR.CAMRY_TSS2, CAR.CAMRYH_TSS2):
       stop_and_go = True
@@ -89,7 +89,7 @@ class CarInterface(CarInterfaceBase):
       if candidate in (CAR.CAMRY_TSS2, CAR.CAMRYH_TSS2):
         set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.4, FRICTION=0.05)
       else:
-        set_lat_tune(ret.lateralTuning, LatTunes.PID_C)
+        set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.0, FRICTION=0.04)
 
     elif candidate in (CAR.HIGHLANDER_TSS2, CAR.HIGHLANDERH_TSS2):
       stop_and_go = True
@@ -97,7 +97,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 16.0
       tire_stiffness_factor = 0.8
       ret.mass = 4700. * CV.LB_TO_KG + STD_CARGO_KG  # 4260 + 4-5 people
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_G)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.0, FRICTION=0.09)
 
     elif candidate in (CAR.HIGHLANDER, CAR.HIGHLANDERH):
       stop_and_go = True
@@ -105,7 +105,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 16.0
       tire_stiffness_factor = 0.8
       ret.mass = 4607. * CV.LB_TO_KG + STD_CARGO_KG  # mean between normal and hybrid limited
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_G)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=1.8, FRICTION=0.08)
 
     elif candidate in (CAR.AVALON, CAR.AVALON_2019, CAR.AVALONH_2019, CAR.AVALON_TSS2, CAR.AVALONH_TSS2):
       # starting from 2019, all Avalon variants have stop and go
@@ -115,7 +115,8 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 14.8  # Found at https://pressroom.toyota.com/releases/2016+avalon+product+specs.download
       tire_stiffness_factor = 0.7983
       ret.mass = 3505. * CV.LB_TO_KG + STD_CARGO_KG  # mean between normal and hybrid
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_H)
+      # TODO: this is from AVALON_2019
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=1.6, FRICTION=0.08)
 
     elif candidate in (CAR.RAV4_TSS2, CAR.RAV4_TSS2_2022, CAR.RAV4H_TSS2, CAR.RAV4H_TSS2_2022):
       stop_and_go = True
@@ -123,14 +124,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 14.3
       tire_stiffness_factor = 0.7933
       ret.mass = 3585. * CV.LB_TO_KG + STD_CARGO_KG  # Average between ICE and Hybrid
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_D)
-
-      # 2019+ RAV4 TSS2 uses two different steering racks and specific tuning seems to be necessary.
-      # See https://github.com/commaai/openpilot/pull/21429#issuecomment-873652891
-      for fw in car_fw:
-        if fw.ecu == "eps" and (fw.fwVersion.startswith(b'\x02') or fw.fwVersion in [b'8965B42181\x00\x00\x00\x00\x00\x00']):
-          set_lat_tune(ret.lateralTuning, LatTunes.PID_I)
-          break
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.5, FRICTION=0.05)
 
     elif candidate in (CAR.COROLLA_TSS2, CAR.COROLLAH_TSS2):
       stop_and_go = True
@@ -154,7 +148,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 15.5
       tire_stiffness_factor = 0.444
       ret.mass = 4590. * CV.LB_TO_KG + STD_CARGO_KG
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_J)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=1.6, FRICTION=0.04)
 
     elif candidate in (CAR.LEXUS_IS, CAR.LEXUS_RC):
       ret.wheelbase = 2.79908
@@ -185,7 +179,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 13.4   # True steerRatio from older prius
       tire_stiffness_factor = 0.6371   # hand-tune
       ret.mass = 3115. * CV.LB_TO_KG + STD_CARGO_KG
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_N)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.0, FRICTION=0.1)
 
     elif candidate == CAR.MIRAI:
       stop_and_go = True
@@ -193,7 +187,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 14.8
       tire_stiffness_factor = 0.8
       ret.mass = 4300. * CV.LB_TO_KG + STD_CARGO_KG
-      set_lat_tune(ret.lateralTuning, LatTunes.PID_C)
+      set_lat_tune(ret.lateralTuning, LatTunes.TORQUE, MAX_LAT_ACCEL=2.4, FRICTION=0.09)
 
     elif candidate in (CAR.ALPHARD_TSS2, CAR.ALPHARDH_TSS2):
       stop_and_go = True
