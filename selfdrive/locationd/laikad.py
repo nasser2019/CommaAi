@@ -66,7 +66,7 @@ class Laikad:
 
       t = ublox_mono_time * 1e-9
       self.update_localizer(pos_fix, t, corrected_measurements)
-      localizer_valid = bool(self.localizer_valid(t))
+      localizer_valid = all(self.localizer_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
@@ -103,16 +103,18 @@ class Laikad:
 
   def update_localizer(self, pos_fix, t: float, measurements: List[GNSSMeasurement]):
     # Check time and outputs are valid
-    if not self.localizer_valid(t):
+    valid = self.localizer_valid(t)
+    if not all(valid):
       # A position fix is needed when resetting the kalman filter.
       if len(pos_fix) == 0:
         return
       post_est = pos_fix[0][:3].tolist()
-      filter_time = self.gnss_kf.filter.filter_time
-      if filter_time is None:
+      if not valid[0]:
         cloudlog.info("Init gnss kalman filter")
-      elif (t - filter_time) > MAX_TIME_GAP:
+      elif not valid[1]:
         cloudlog.error("Time gap of over 10s detected, gnss kalman reset")
+      elif not valid[2]:
+        cloudlog.error("Gnss kalman std too far")
       else:
         cloudlog.error("Gnss kalman filter state is nan")
       self.init_gnss_localizer(post_est, pos_fix[1])
@@ -124,8 +126,10 @@ class Laikad:
 
   def localizer_valid(self, t: float):
     filter_time = self.gnss_kf.filter.filter_time
-    return filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP and all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS])) and linalg.norm(
-      self.gnss_kf.P[GStates.ECEF_POS]) < 1e4
+    return [filter_time is not None,
+            filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP,
+            linalg.norm(self.gnss_kf.P[GStates.ECEF_POS]) < 2e4,
+            all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS]))]
 
   def init_gnss_localizer(self, est_pos, pos_std):
     x_initial, p_initial_diag = np.copy(GNSSKalman.x_initial), np.copy(np.diagonal(GNSSKalman.P_initial))
