@@ -68,7 +68,7 @@ class Laikad:
         kf_pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
       est_pos = None
       # If localizer is valid use its position to correct measurements
-      if kf_pos_std and linalg.norm(kf_pos_std) < 100:
+      if kf_pos_std is not None and linalg.norm(kf_pos_std) < 100:
         est_pos = self.gnss_kf.x[GStates.ECEF_POS]
       elif len(pos_fix) > 0:
         est_pos = pos_fix[0][:3]
