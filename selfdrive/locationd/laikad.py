@@ -62,13 +62,13 @@ class Laikad:
       corrected_measurements = []
 
       t = ublox_mono_time * 1e-9
-      pos_std = None
-      if all(self.localizer_valid(t)):
+      kf_pos_std = None
+      if all(self.kf_valid(t)):
         self.gnss_kf.predict(t)
-        pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
+        kf_pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
       est_pos = None
       # If localizer is valid use its position to correct measurements
-      if pos_std and linalg.norm(pos_std) < 100:
+      if kf_pos_std and linalg.norm(kf_pos_std) < 100:
         est_pos = self.gnss_kf.x[GStates.ECEF_POS]
       elif len(pos_fix) > 0:
         est_pos = pos_fix[0][:3]
@@ -77,7 +77,7 @@ class Laikad:
         corrected_measurements = correct_measurements(processed_measurements, est_pos, self.astro_dog)
 
       self.update_localizer(pos_fix, t, corrected_measurements)
-      localizer_valid = all(self.localizer_valid(t))
+      kf_valid = all(self.kf_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
@@ -91,20 +91,20 @@ class Laikad:
       dat = messaging.new_message("gnssMeasurements")
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
       # todo temp, remove
-      if localizer_valid and self._first_correct_gps_message:
+      if kf_valid and self._first_correct_gps_message:
         cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       diff_pos_fix = ''
       if len(pos_fix) > 0:
         diff_pos_fix = f"diff pos {(ecef_pos - pos_fix[0][:3]).round(1)}"
       cloudlog.warning(
-        f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}" +
+        f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
         f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {diff_pos_fix} ")
 
       dat.gnssMeasurements = {
-        "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
-        "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=localizer_valid),
-        "bearingDeg": measurement_msg(value=[bearing_deg], std=[bearing_std], valid=localizer_valid),
+        "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=kf_valid),
+        "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=kf_valid),
+        "bearingDeg": measurement_msg(value=[bearing_deg], std=[bearing_std], valid=kf_valid),
         "ubloxMonoTime": ublox_mono_time,
         "correctedMeasurements": meas_msgs
       }
@@ -117,7 +117,7 @@ class Laikad:
 
   def update_localizer(self, pos_fix, t: float, measurements: List[GNSSMeasurement]):
     # Check time and outputs are valid
-    valid = self.localizer_valid(t)
+    valid = self.kf_valid(t)
     if not all(valid):
       # A position fix is needed when resetting the kalman filter.
       if len(pos_fix) == 0:
@@ -138,7 +138,7 @@ class Laikad:
       # Ensure gnss filter is updated even with no new measurements
       self.gnss_kf.predict(t)
 
-  def localizer_valid(self, t: float):
+  def kf_valid(self, t: float):
     filter_time = self.gnss_kf.filter.filter_time
     return [filter_time is not None,
             filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP,
