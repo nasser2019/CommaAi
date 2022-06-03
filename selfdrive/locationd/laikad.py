@@ -56,7 +56,7 @@ class Laikad:
           eph = self.astro_dog.get_nav(m.prn, sat_time)
         if eph:
           ephems_used.append(eph)
-      pos_fix = calc_pos_fix(measurements, min_measurements=4)
+      pos_fix = calc_pos_fix(measurements, min_measurements=6)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
@@ -66,14 +66,13 @@ class Laikad:
 
       t = ublox_mono_time * 1e-9
       self.update_localizer(pos_fix, t, corrected_measurements)
-      # Todo need to fix localizer valid. It doesnt work after segment is reset
       localizer_valid = bool(self.localizer_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
 
-      pos_std = self.gnss_kf.P[GStates.ECEF_POS].flatten().tolist()
-      vel_std = self.gnss_kf.P[GStates.ECEF_VELOCITY].flatten().tolist()
+      pos_std = np.sqrt(self.gnss_kf.P[GStates.ECEF_POS].diagonal()).tolist()
+      vel_std = np.sqrt(self.gnss_kf.P[GStates.ECEF_VELOCITY].diagonal()).tolist()
 
       bearing_deg, bearing_std = get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std)
 
@@ -131,7 +130,8 @@ class Laikad:
   def init_gnss_localizer(self, est_pos, pos_std):
     x_initial, p_initial_diag = np.copy(GNSSKalman.x_initial), np.copy(np.diagonal(GNSSKalman.P_initial))
     x_initial[GStates.ECEF_POS] = est_pos
-    p_initial_diag[GStates.ECEF_POS] = linalg.norm(pos_std) ** 2
+    # np.mean(abs(np.array(pos_std))) ** 2??
+    p_initial_diag[GStates.ECEF_POS] = 1000 ** 2
     self.gnss_kf.init_state(x_initial, covs_diag=p_initial_diag)
 
   def orbit_thread(self, end_event: threading.Event):
