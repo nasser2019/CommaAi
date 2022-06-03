@@ -56,7 +56,7 @@ class Laikad:
           eph = self.astro_dog.get_nav(m.prn, sat_time)
         if eph:
           ephems_used.append(eph)
-      pos_fix = calc_pos_fix(measurements, min_measurements=6)
+      pos_fix = calc_pos_fix(measurements, min_measurements=4)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
