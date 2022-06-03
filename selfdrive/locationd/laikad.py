@@ -85,7 +85,8 @@ class Laikad:
       if localizer_valid and self._first_correct_gps_message:
         cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time()- self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
-      cloudlog.warning(f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}")
+      cloudlog.warning(f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}"+
+                       f" pos_std {linalg.norm(pos_std):.03}")
 
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
