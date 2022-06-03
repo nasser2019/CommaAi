@@ -72,6 +72,7 @@ class Laikad:
         est_pos = self.gnss_kf.x[GStates.ECEF_POS]
       elif len(pos_fix) > 0:
         est_pos = pos_fix[0][:3]
+        # Todo might want to check for dop > 10?
         # print("dop", get_DOP(est_pos, [m.sat_pos for m in processed_measurements]))
       if est_pos is not None:
         corrected_measurements = correct_measurements(processed_measurements, est_pos, self.astro_dog)
@@ -97,7 +98,7 @@ class Laikad:
       diff_pos_fix = ''
       if len(pos_fix) > 0:
         diff_pos_fix = f"diff pos {(ecef_pos - pos_fix[0][:3]).round(1)}"
-      cloudlog.warning(
+      cloudlog.info(
         f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
         f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {diff_pos_fix} ")
 

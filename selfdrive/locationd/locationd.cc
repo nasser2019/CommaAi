@@ -331,7 +331,7 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
     return;
   }
   VectorXd current_pos_std = this->kf->get_P().block<STATE_ECEF_POS_ERR_LEN, STATE_ECEF_POS_ERR_LEN>(STATE_ECEF_POS_ERR_START, STATE_ECEF_POS_ERR_START).diagonal().array().sqrt();
-  LOGE("Good! kf pos std: %.3f", current_pos_std.norm());
+  LOGE("Good! kf pos std: %.1f", current_pos_std.norm());
 
   // bool gps_lat_lng_alt_insane = ((std::abs(log.getLatitude()) > 90) || (std::abs(log.getLongitude()) > 180) || (std::abs(log.getAltitude()) > ALTITUDE_SANITY_CHECK));
   this->last_gps_fix = current_time;
