@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import threading
 import time
 from typing import List
@@ -28,12 +27,10 @@ MAX_TIME_GAP = 10
 class Laikad:
 
   def __init__(self, valid_const=("GPS", "GLONASS"), auto_update=False, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
-    os.environ["NASA_USERNAME"] = "gkoning"
-    os.environ["NASA_PASSWORD"] = "u&+9A3L+RA6K6z8"
     self.astro_dog = AstroDog(valid_const=valid_const, use_internet=auto_update, valid_ephem_types=valid_ephem_types)
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
-    self.latest_time_msg = None  # todo make this better
+    self.latest_time_msg = None
     self._first_correct_gps_message = None
 
   def process_ublox_msg(self, ublox_msg, ublox_mono_time: int):
@@ -41,7 +38,7 @@ class Laikad:
       report = ublox_msg.measurementReport
       new_meas = read_raw_ublox(report)
       if report.gpsWeek > 0:
-        if self._first_correct_gps_message is None:
+        if self._first_correct_gps_message is None: # todo remove
           self._first_correct_gps_message = time.time()
         self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       processed_measurements = process_measurements(new_meas, self.astro_dog)
@@ -91,13 +88,14 @@ class Laikad:
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
       dat = messaging.new_message("gnssMeasurements")
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
-      # todo temp, remove
       if kf_valid and self._first_correct_gps_message:
+        # todo temp, remove
         cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       diff_pos_fix = ''
       if len(pos_fix) > 0:
         diff_pos_fix = f"diff pos {(ecef_pos - pos_fix[0][:3]).round(1)}"
+      # todo cleanup
       cloudlog.info(
         f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
         f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {diff_pos_fix} ")
