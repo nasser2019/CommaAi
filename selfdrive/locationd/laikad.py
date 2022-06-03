@@ -46,7 +46,7 @@ class Laikad:
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
-      print("incoming meas", len(new_meas), "processed meas",len(measurements))
+      print("incoming report", len(report.measurements), "incoming meas", len(new_meas), "processed meas",len(measurements))
 
       if len(pos_fix) > 0 and linalg.norm(pos_fix[1]) < 100:
         corrected_measurements = correct_measurements(measurements, pos_fix[0][:3], self.astro_dog)
