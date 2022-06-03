@@ -116,15 +116,21 @@ def fingerprint(logcan, sendcan):
     vin = VIN_UNKNOWN
     exact_fw_match, fw_candidates, car_fw = True, set(), []
 
+  if len(vin) != 17:
+    cloudlog.event("Malformed VIN", vin=vin, error=True)
+    vin = VIN_UNKNOWN
   cloudlog.warning("VIN %s", vin)
   Params().put("CarVin", vin)
 
   finger = gen_empty_fingerprint()
   candidate_cars = {i: all_legacy_fingerprint_cars() for i in [0, 1]}  # attempt fingerprint on both bus 0 and 1
   frame = 0
-  frame_fingerprint = 10  # 0.1s
+  frame_fingerprint = 25  # 0.25s
   car_fingerprint = None
   done = False
+
+  # drain CAN socket so we always get the latest messages
+  messaging.drain_sock_raw(logcan)
 
   while not done:
     a = get_one_can(logcan)
