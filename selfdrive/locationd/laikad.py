@@ -46,7 +46,7 @@ class Laikad:
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
-      print("incoming report", len(report.measurements), "incoming meas", len(new_meas), "processed meas",len(measurements))
+      cloudlog.warning(f"incoming report {len(report.measurements)} incoming meas {len(new_meas)} processed meas {len(measurements)}")
 
       if len(pos_fix) > 0 and linalg.norm(pos_fix[1]) < 100:
         corrected_measurements = correct_measurements(measurements, pos_fix[0][:3], self.astro_dog)
@@ -65,10 +65,8 @@ class Laikad:
       bearing_deg, bearing_std = get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std)
 
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
-      print("corrected meas", len(meas_msgs))
       dat = messaging.new_message("gnssMeasurements")
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
-      print("localizer_valid", localizer_valid)
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
         "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=localizer_valid),
@@ -125,7 +123,7 @@ class Laikad:
     if self.latest_epoch_fetched < t + SECS_IN_MIN:
       orbit_ephems = self.astro_dog.download_parse_orbit_data(t, skip_before_epoch=t - 2 * SECS_IN_HR)
       if len(orbit_ephems) > 0:
-        print("downloaded correctly new orbits", len(orbit_ephems))
+        cloudlog.warning(f"downloaded correctly new orbits {len(orbit_ephems)}")
         self.astro_dog.add_ephems(orbit_ephems, self.astro_dog.orbits)
         latest_orbit = max(orbit_ephems, key=lambda e: e.epoch)  # type: ignore
         self.latest_epoch_fetched = latest_orbit.epoch
@@ -186,12 +184,10 @@ def main():
         ublox_msg = sm['ubloxGnss']
         msg = laikad.process_ublox_msg(ublox_msg, sm.logMonoTime['ubloxGnss'])
         if msg is not None:
-          print("msg sent", msg)
           pm.send('gnssMeasurements', msg)
   except (KeyboardInterrupt, SystemExit):
     end_event.set()
     raise
-
 
 if __name__ == "__main__":
   main()
