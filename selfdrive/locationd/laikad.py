@@ -10,7 +10,7 @@ from collections import defaultdict
 from numpy.linalg import linalg
 
 from cereal import log, messaging
-from laika import AstroDog
+from laika import AstroDog, constants
 from laika.constants import SECS_IN_HR, SECS_IN_MIN
 from laika.ephemeris import EphemerisType, convert_ublox_ephem
 from laika.gps_time import GPSTime
@@ -46,11 +46,21 @@ class Laikad:
           self._first_correct_gps_message = time.time()
         self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       measurements = process_measurements(new_meas, self.astro_dog)
+      # todo temporary
+      ephems_used = []
+      for m in new_meas:
+        sat_time = m.recv_time - m.observables['C1C'] / constants.SPEED_OF_LIGHT
+        eph = None
+        if self.astro_dog.pull_orbit:
+          eph = self.astro_dog.get_orbit(m.prn, sat_time)
+        if not eph and self.astro_dog.pull_nav:
+          eph = self.astro_dog.get_nav(m.prn, sat_time)
+        if eph:
+          ephems_used.append(eph)
       pos_fix = calc_pos_fix(measurements, min_measurements=4)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
-      cloudlog.warning(f"incoming {len(new_meas)} processed {len(measurements)}")
 
       if len(pos_fix) > 0 and linalg.norm(pos_fix[1]) < 100:
         corrected_measurements = correct_measurements(measurements, pos_fix[0][:3], self.astro_dog)
@@ -75,6 +85,7 @@ class Laikad:
       if localizer_valid and self._first_correct_gps_message:
         cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time()- self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
+      cloudlog.warning(f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}")
 
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
