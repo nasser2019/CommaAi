@@ -620,8 +620,6 @@ int Localizer::locationd_thread() {
         }
       }
     } else {
-      LOGE("Filter not initalized");
-
       filterInitialized = sm.allAliveAndValid();
     }
 
