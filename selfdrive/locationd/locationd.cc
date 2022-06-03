@@ -28,6 +28,14 @@ static VectorXd floatlist2vector(const capnp::List<float, capnp::Kind::PRIMITIVE
   return res;
 }
 
+static VectorXd doublelist2vector(const capnp::List<double, capnp::Kind::PRIMITIVE>::Reader& doublelist) {
+  VectorXd res(doublelist.size());
+  for (int i = 0; i < doublelist.size(); i++) {
+    res[i] = doublelist[i];
+  }
+  return res;
+}
+
 static Vector4d quat2vector(const Quaterniond& quat) {
   return Vector4d(quat.w(), quat.x(), quat.y(), quat.z());
 }
@@ -308,16 +316,21 @@ void Localizer::handle_gnss_measurements(double time, const cereal::GnssMeasurem
 void Localizer::check_initial_position(double current_time, const cereal::GnssMeasurements::Reader& log) {
   auto positionECEF = log.getPositionECEF().getValue();
   Geodetic geodetic_pos = ecef2geodetic({positionECEF[0],positionECEF[1],positionECEF[2]});
+  VectorXd position_std = doublelist2vector(log.getPositionECEF().getStd());
+
+  bool gps_unreasonable = (position_std.norm() >= SANE_GPS_UNCERTAINTY);
   bool gps_lat_lng_alt_insane = ((std::abs(geodetic_pos.lat) > 90) || (std::abs(geodetic_pos.lon) > 180) || (std::abs(geodetic_pos.alt) > ALTITUDE_SANITY_CHECK));
-  bool gps_accuracy_insane = log.getBearingDeg().getStd()[0] > 0.1;
+  bool gps_accuracy_insane = log.getBearingDeg().getStd()[0] > 1;
 
 
-  if (gps_lat_lng_alt_insane || gps_accuracy_insane) {
-    LOGE("INSanneee");
+  if (gps_unreasonable || gps_lat_lng_alt_insane || gps_accuracy_insane) {
+    LOGE("INSanneee. gps_unreasonable %d, gps_lat_lng_alt_insane %d", gps_unreasonable, gps_lat_lng_alt_insane);
     this->determine_gps_mode(current_time);
     return;
   }
 
+  // bool gps_lat_lng_alt_insane = ((std::abs(log.getLatitude()) > 90) || (std::abs(log.getLongitude()) > 180) || (std::abs(log.getAltitude()) > ALTITUDE_SANITY_CHECK));
+  // bool gps_vel_insane = (floatlist2vector(log.getVNED()).norm() > TRANS_SANITY_CHECK);
   this->last_gps_fix = current_time;
   this->gps_mode = true;
   this->converter = std::make_unique<LocalCoord>(geodetic_pos);
