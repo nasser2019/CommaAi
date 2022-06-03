@@ -67,7 +67,7 @@ class Laikad:
       t = ublox_mono_time * 1e-9
       self.update_localizer(pos_fix, t, corrected_measurements)
       # Todo need to fix localizer valid. It doesnt work after segment is reset
-      localizer_valid = self.localizer_valid(t)
+      localizer_valid = bool(self.localizer_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
@@ -82,10 +82,11 @@ class Laikad:
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
       # todo temp, remove
       if localizer_valid and self._first_correct_gps_message:
-        cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time()- self._first_correct_gps_message:.2f}")
+        cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
-      cloudlog.warning(f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}"+
-                       f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in corrected_measurements])}")
+      cloudlog.warning(
+        f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}" +
+        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in corrected_measurements])}")
 
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
@@ -115,7 +116,7 @@ class Laikad:
         cloudlog.error("Time gap of over 10s detected, gnss kalman reset")
       else:
         cloudlog.error("Gnss kalman filter state is nan")
-      self.init_gnss_localizer(post_est)
+      self.init_gnss_localizer(post_est, pos_fix[1])
     if len(measurements) > 0:
       kf_add_observations(self.gnss_kf, t, measurements)
     else:
@@ -124,13 +125,13 @@ class Laikad:
 
   def localizer_valid(self, t: float):
     filter_time = self.gnss_kf.filter.filter_time
-    return filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP and all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS]))
+    return filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP and all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS])) and linalg.norm(
+      self.gnss_kf.P[GStates.ECEF_POS]) < 1e4
 
-  def init_gnss_localizer(self, est_pos):
+  def init_gnss_localizer(self, est_pos, pos_std):
     x_initial, p_initial_diag = np.copy(GNSSKalman.x_initial), np.copy(np.diagonal(GNSSKalman.P_initial))
     x_initial[GStates.ECEF_POS] = est_pos
-    p_initial_diag[GStates.ECEF_POS] = 1000 ** 2
-
+    p_initial_diag[GStates.ECEF_POS] = linalg.norm(pos_std) ** 2
     self.gnss_kf.init_state(x_initial, covs_diag=p_initial_diag)
 
   def orbit_thread(self, end_event: threading.Event):
