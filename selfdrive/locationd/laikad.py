@@ -35,12 +35,15 @@ class Laikad:
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
     self.latest_time_msg = None  # todo make this better
+    self._first_correct_gps_message = None
 
   def process_ublox_msg(self, ublox_msg, ublox_mono_time: int):
     if ublox_msg.which == 'measurementReport':
       report = ublox_msg.measurementReport
       new_meas = read_raw_ublox(report)
       if report.gpsWeek > 0:
+        if self._first_correct_gps_message is None:
+          self._first_correct_gps_message = time.time()
         self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       measurements = process_measurements(new_meas, self.astro_dog)
       pos_fix = calc_pos_fix(measurements, min_measurements=4)
@@ -68,6 +71,11 @@ class Laikad:
       meas_msgs = [create_measurement_msg(m) for m in corrected_measurements]
       dat = messaging.new_message("gnssMeasurements")
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
+      # todo temp, remove
+      if localizer_valid and self._first_correct_gps_message:
+        cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time()- self._first_correct_gps_message:.2f}")
+        self._first_correct_gps_message = False
+
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
         "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=localizer_valid),
