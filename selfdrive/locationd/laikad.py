@@ -44,7 +44,7 @@ class Laikad:
         if self._first_correct_gps_message is None:
           self._first_correct_gps_message = time.time()
         self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
-      measurements = process_measurements(new_meas, self.astro_dog)
+      processed_measurements = process_measurements(new_meas, self.astro_dog)
       # todo temporary
       ephems_used = []
       for m in new_meas:
@@ -56,23 +56,34 @@ class Laikad:
           eph = self.astro_dog.get_nav(m.prn, sat_time)
         if eph:
           ephems_used.append(eph)
-      pos_fix = calc_pos_fix(measurements, min_measurements=4)
+      pos_fix = calc_pos_fix(processed_measurements, min_measurements=4)
       # To get a position fix a minimum of 5 measurements are needed.
       # Each report can contain less and some measurements can't be processed.
       corrected_measurements = []
 
-      if len(pos_fix) > 0 and linalg.norm(pos_fix[1]) < 100:
-        corrected_measurements = correct_measurements(measurements, pos_fix[0][:3], self.astro_dog)
-
       t = ublox_mono_time * 1e-9
+      pos_std = None
+      if all(self.localizer_valid(t)):
+        self.gnss_kf.predict(t)
+        pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
+      est_pos = None
+      # If localizer is valid use its position to correct measurements
+      if pos_std and linalg.norm(pos_std) < 100:
+        est_pos = self.gnss_kf.x[GStates.ECEF_POS]
+      elif len(pos_fix) > 0:
+        est_pos = pos_fix[0][:3]
+        # print("dop", get_DOP(est_pos, [m.sat_pos for m in processed_measurements]))
+      if est_pos is not None:
+        corrected_measurements = correct_measurements(processed_measurements, est_pos, self.astro_dog)
+
       self.update_localizer(pos_fix, t, corrected_measurements)
       localizer_valid = all(self.localizer_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
       ecef_vel = self.gnss_kf.x[GStates.ECEF_VELOCITY].tolist()
 
-      pos_std = np.sqrt(self.gnss_kf.P[GStates.ECEF_POS].diagonal()).tolist()
-      vel_std = np.sqrt(self.gnss_kf.P[GStates.ECEF_VELOCITY].diagonal()).tolist()
+      pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal())).tolist()
+      vel_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_VELOCITY].diagonal())).tolist()
 
       bearing_deg, bearing_std = get_bearing_from_gnss(ecef_pos, ecef_vel, vel_std)
 
@@ -83,9 +94,12 @@ class Laikad:
       if localizer_valid and self._first_correct_gps_message:
         cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
+      diff_pos_fix = ''
+      if len(pos_fix) > 0:
+        diff_pos_fix = f"diff pos {(ecef_pos - pos_fix[0][:3]).round(1)}"
       cloudlog.warning(
-        f"incoming {len(new_meas)} processed {len(measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}" +
-        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in corrected_measurements])}")
+        f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {localizer_valid}" +
+        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {diff_pos_fix} ")
 
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=localizer_valid),
