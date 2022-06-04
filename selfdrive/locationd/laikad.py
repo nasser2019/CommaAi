@@ -27,7 +27,7 @@ MAX_TIME_GAP = 10
 class Laikad:
 
   def __init__(self, valid_const=("GPS", "GLONASS"), auto_update=False, valid_ephem_types=(EphemerisType.ULTRA_RAPID_ORBIT, EphemerisType.NAV)):
-    self.astro_dog = AstroDog(valid_const=valid_const, use_internet=auto_update, valid_ephem_types=valid_ephem_types)
+    self.astro_dog = AstroDog(valid_const=valid_const, auto_update=auto_update, valid_ephem_types=valid_ephem_types)
     self.gnss_kf = GNSSKalman(GENERATED_DIR)
     self.latest_epoch_fetched = GPSTime(0, 0)
     self.latest_time_msg = None
@@ -90,7 +90,7 @@ class Laikad:
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
       if kf_valid and self._first_correct_gps_message:
         # todo temp, remove
-        cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
+        cloudlog.info(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       diff_pos_fix = ''
       if len(pos_fix) > 0:
