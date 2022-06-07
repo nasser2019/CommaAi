@@ -373,9 +373,8 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
   }
   gps_est_error = (this->kf->get_x().segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START) - ecef_pos).norm();
   double gps_vel_est_error = (this->kf->get_x().segment<STATE_ECEF_VELOCITY_LEN>(STATE_ECEF_VELOCITY_START) - ecef_vel).norm();
-  LOGE("regular/update: gps_est_error error: %.1f, error treshold %.1f, gps_vel_est_error %.1f,", gps_est_error, gps_est_threshold, gps_vel_est_error);
+  LOGE("regular/update: gps_est_error error: %.1f, error threshold %.1f, gps_vel_est_error %.1f,", gps_est_error, gps_est_threshold, gps_vel_est_error);
   LOGE("gnss pos_std, vel_std: %.1f, %.1f", pos_std, vel_std);
-
 }
 
 
