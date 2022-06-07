@@ -215,6 +215,8 @@ jobs:
     name: static analysis
     runs-on: ubuntu-20.04
     timeout-minutes: 50
+    env:
+      PYTHONWARNINGS: default
     steps:
     - uses: actions/checkout@v3
       with:
