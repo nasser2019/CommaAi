@@ -90,7 +90,7 @@ class Laikad:
       measurement_msg = log.LiveLocationKalman.Measurement.new_message
       if kf_valid and self._first_correct_gps_message:
         # todo temp, remove
-        cloudlog.error(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
+        cloudlog.info(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       diff_pos_fix = ''
       if len(pos_fix) > 0:
@@ -159,10 +159,10 @@ class Laikad:
 
   def fetch_orbits(self, t: GPSTime):
     if self.latest_epoch_fetched < t + SECS_IN_MIN:
-      cloudlog.warning("Start to download/parse orbits")
+      cloudlog.info("Start to download/parse orbits")
       orbit_ephems = self.astro_dog.download_parse_orbit_data(t, skip_before_epoch=t - 2 * SECS_IN_HR)
       if len(orbit_ephems) > 0:
-        cloudlog.warning(f"downloaded and parsed correctly new orbits {len(orbit_ephems)}, Constellations:{set([e.prn[0] for e in orbit_ephems])}")
+        cloudlog.info(f"downloaded and parsed correctly new orbits {len(orbit_ephems)}, Constellations:{set([e.prn[0] for e in orbit_ephems])}")
         self.astro_dog.add_ephems(orbit_ephems, self.astro_dog.orbits)
         latest_orbit = max(orbit_ephems, key=lambda e: e.epoch)  # type: ignore
         self.latest_epoch_fetched = latest_orbit.epoch
