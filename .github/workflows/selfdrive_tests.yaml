@@ -215,8 +215,6 @@ jobs:
     name: static analysis
     runs-on: ubuntu-20.04
     timeout-minutes: 50
-    env:
-      PYTHONWARNINGS: default
     steps:
     - uses: actions/checkout@v3
       with:
@@ -224,7 +222,7 @@ jobs:
     - name: Build Docker image
       run: eval "$BUILD"
     - name: pre-commit
-      run: ${{ env.RUN }} "pre-commit run --all"
+      run: ${{ env.RUN }} "PYTHONWARNINGS=default pre-commit run --all"
 
   valgrind:
     name: valgrind
