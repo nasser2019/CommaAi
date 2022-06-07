@@ -37,7 +37,7 @@ class Laikad:
       report = ublox_msg.measurementReport
       new_meas = read_raw_ublox(report)
       if report.gpsWeek > 0:
-        if self._first_correct_gps_message is None: # todo remove
+        if self._first_correct_gps_message is None:  # todo remove
           self._first_correct_gps_message = time.time()
         self.latest_time_msg = GPSTime(report.gpsWeek, report.rcvTow)
       processed_measurements = process_measurements(new_meas, self.astro_dog)
