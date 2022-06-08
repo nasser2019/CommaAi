@@ -210,6 +210,7 @@ def thermald_thread(end_event, hw_queue):
 
       # Set ignition based on any panda connected
       onroad_conditions["ignition"] = any(ps.ignitionLine or ps.ignitionCan for ps in pandaStates if ps.pandaType != log.PandaState.PandaType.unknown)
+      print('ignition: {}'.format(onroad_conditions['ignition']))
 
       pandaState = pandaStates[0]
 
@@ -221,6 +222,7 @@ def thermald_thread(end_event, hw_queue):
           fan_controller = TiciFanController()
 
     elif (sec_since_boot() - sm.rcv_time['pandaStates']/1e9) > DISCONNECT_TIMEOUT:
+      print('DISCONNECT TIMEOUT!')
       if onroad_conditions["ignition"]:
         onroad_conditions["ignition"] = False
         cloudlog.error("panda timed out onroad")
@@ -285,6 +287,9 @@ def thermald_thread(end_event, hw_queue):
                                                params.get_bool("Passive")
     startup_conditions["not_driver_view"] = not params.get_bool("IsDriverViewEnabled")
     startup_conditions["not_taking_snapshot"] = not params.get_bool("IsTakingSnapshot")
+    print(onroad_conditions)
+    print(startup_conditions)
+    print()
     # if any CPU gets above 107 or the battery gets above 63, kill all processes
     # controls will warn with CPU above 95 or battery above 60
     onroad_conditions["device_temp_good"] = thermal_status < ThermalStatus.danger
