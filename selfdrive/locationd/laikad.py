@@ -14,7 +14,7 @@ from laika.constants import SECS_IN_MIN
 from laika.ephemeris import EphemerisType, convert_ublox_ephem
 from laika.gps_time import GPSTime
 from laika.helpers import ConstellationId
-from laika.raw_gnss import GNSSMeasurement, calc_pos_fix, correct_measurements, process_measurements, read_raw_ublox
+from laika.raw_gnss import GNSSMeasurement, calc_pos_fix, correct_measurements, get_DOP, process_measurements, read_raw_ublox
 from selfdrive.locationd.models.constants import GENERATED_DIR, ObservationKind
 from selfdrive.locationd.models.gnss_kf import GNSSKalman
 from selfdrive.locationd.models.gnss_kf import States as GStates
@@ -33,14 +33,14 @@ class Laikad:
     self.orbit_q = Queue()
     self._first_correct_gps_message = None
 
-  def process_ublox_msg(self, ublox_msg, ublox_mono_time: int):
+  def process_ublox_msg(self, ublox_msg, ublox_mono_time: int, block=False):
     if ublox_msg.which == 'measurementReport':
       report = ublox_msg.measurementReport
       if report.gpsWeek > 0:
         if self._first_correct_gps_message is None:  # todo remove
           self._first_correct_gps_message = time.time()
         latest_msg_t = GPSTime(report.gpsWeek, report.rcvTow)
-        self.fetch_orbits(latest_msg_t + SECS_IN_MIN, block=False)
+        self.fetch_orbits(latest_msg_t + SECS_IN_MIN, block=block)
 
       new_meas = read_raw_ublox(report)
       processed_measurements = process_measurements(new_meas, self.astro_dog)
@@ -93,14 +93,16 @@ class Laikad:
         # todo temp, remove
         cloudlog.info(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
-      diff_pos_fix = ''
+      pos_fix_related = ''
       if len(pos_fix) > 0:
-        diff_pos_fix = f"diff pos {(ecef_pos - pos_fix[0][:3]).round(1)}"
+        dop = get_DOP(est_pos, [m.sat_pos for m in processed_measurements])
+        pos_fix_related = f"diff kf pos vs fix {(ecef_pos - pos_fix[0][:3]).round(1)} DOP {dop}"
       # todo cleanup
       cloudlog.info(
         f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
-        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {diff_pos_fix} ")
-
+        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {pos_fix_related} ")
+      assert all(np.isfinite(pos_std))
+      assert all(np.isfinite(vel_std))
       dat.gnssMeasurements = {
         "positionECEF": measurement_msg(value=ecef_pos, std=pos_std, valid=kf_valid),
         "velocityECEF": measurement_msg(value=ecef_vel, std=vel_std, valid=kf_valid),
@@ -142,7 +144,7 @@ class Laikad:
     filter_time = self.gnss_kf.filter.filter_time
     return [filter_time is not None,
             filter_time is not None and abs(t - filter_time) < MAX_TIME_GAP,
-            linalg.norm(self.gnss_kf.P[GStates.ECEF_POS]) < 2e4,
+            linalg.norm(self.gnss_kf.P[GStates.ECEF_POS]) < 1e5,
             all(np.isfinite(self.gnss_kf.x[GStates.ECEF_POS]))]
 
   def init_gnss_localizer(self, est_pos, pos_std):
