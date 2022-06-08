@@ -326,7 +326,7 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
   bool gps_accuracy_insane = log.getBearingDeg().getStd()[0] > 5;
 
   if (gps_unreasonable || gps_accuracy_insane || gps_vel_insane) {
-    LOGE("Insane. gps_unreasonable %d pos_std %.1f || gps_accuracy_insane %d bearingstd %.1f || gps_vel_insane %d", gps_unreasonable, pos_std, gps_accuracy_insane, bearingstd, gps_vel_insane);
+    LOGE("Insane. POS valid %d gps_unreasonable %d pos_std %.1f || gps_accuracy_insane %d bearingstd %.1f || gps_vel_insane %d", log.getPositionECEF().getValid(), gps_unreasonable, pos_std, gps_accuracy_insane, bearingstd, gps_vel_insane);
     this->determine_gps_mode(current_time);
     return;
   }
@@ -505,7 +505,7 @@ void Localizer::time_check(double current_time) {
     this->last_reset_time = current_time;
   }
   double filter_time = this->kf->get_filter_time();
-  bool big_time_gap = !std::isnan(filter_time) && (current_time - filter_time > 10);
+  bool big_time_gap = !std::isnan(filter_time) && (std::abs(current_time - filter_time) > 10);
   if (big_time_gap) {
     LOGE("Time gap of over 10s detected, kalman reset");
     this->reset_kalman(current_time);
