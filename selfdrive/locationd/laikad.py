@@ -96,11 +96,11 @@ class Laikad:
       pos_fix_related = ''
       if len(pos_fix) > 0:
         dop = get_DOP(est_pos, [m.sat_pos for m in processed_measurements])
-        pos_fix_related = f"diff kf pos vs fix {(ecef_pos - pos_fix[0][:3]).round(1)} DOP {dop}"
+        pos_fix_related = f"diff kf pos vs fix {(ecef_pos - pos_fix[0][:3]).round(1)} DOP {dop:.2f}"
       # todo cleanup
       cloudlog.info(
         f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
-        f" pos_std {linalg.norm(pos_std):.03} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {pos_fix_related} ")
+        f" pos_std {linalg.norm(pos_std):.2f} c_ids {set([m.constellation_id.name for m in processed_measurements])} sv_id {sorted([m.sv_id for m in processed_measurements])[:5]} {pos_fix_related} ")
       assert all(np.isfinite(pos_std))
       assert all(np.isfinite(vel_std))
       dat.gnssMeasurements = {
