@@ -330,8 +330,7 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
     this->determine_gps_mode(current_time);
     return;
   }
-  VectorXd current_pos_std = this->kf->get_P().block<STATE_ECEF_POS_ERR_LEN, STATE_ECEF_POS_ERR_LEN>(STATE_ECEF_POS_ERR_START, STATE_ECEF_POS_ERR_START).diagonal().array().sqrt();
-  LOG("Good! kf pos std: %.1f", current_pos_std.norm());
+  double current_pos_std = ((VectorXd)this->kf->get_P().block<STATE_ECEF_POS_ERR_LEN, STATE_ECEF_POS_ERR_LEN>(STATE_ECEF_POS_ERR_START, STATE_ECEF_POS_ERR_START).diagonal().array().sqrt()).norm();
 
   // bool gps_lat_lng_alt_insane = ((std::abs(log.getLatitude()) > 90) || (std::abs(log.getLongitude()) > 180) || (std::abs(log.getAltitude()) > ALTITUDE_SANITY_CHECK));
   this->last_gps_fix = current_time;
@@ -356,7 +355,7 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
     orientation_error(i) -= M_PI;
   }
   VectorXd initial_pose_ecef_quat = quat2vector(euler2quat(ecef_euler_from_ned({ ecef_pos(0), ecef_pos(1), ecef_pos(2) }, orientation_ned_gps)));
-  double gps_est_threshold = 1000.0 * current_pos_std.norm()*pos_std;
+  double gps_est_threshold = 10 * current_pos_std*pos_std + 10;
   if (ecef_vel.norm() > 5.0 && orientation_error.norm() > 3.0) {
     LOGE("Locationd vs gnss msg orientation difference too large, kalman reset. vel norm, orient norm %f, %f", ecef_vel.norm(), orientation_error.norm());
     this->reset_kalman(NAN, initial_pose_ecef_quat, ecef_pos, ecef_vel, ecef_pos_R, ecef_vel_R);
@@ -373,8 +372,7 @@ void Localizer::check_initial_position(double current_time, const cereal::GnssMe
   }
   gps_est_error = (this->kf->get_x().segment<STATE_ECEF_POS_LEN>(STATE_ECEF_POS_START) - ecef_pos).norm();
   double gps_vel_est_error = (this->kf->get_x().segment<STATE_ECEF_VELOCITY_LEN>(STATE_ECEF_VELOCITY_START) - ecef_vel).norm();
-  LOG("regular/update: gps_est_error error: %.1f, error threshold %.1f, gps_vel_est_error %.1f,", gps_est_error, gps_est_threshold, gps_vel_est_error);
-  LOG("gnss pos_std, vel_std: %.1f, %.1f", pos_std, vel_std);
+  LOGE("Good! regular/update: gps_est_error error: %.1f, error threshold %.1f, gps_vel_est_error %.1f, current_pos_std, gnss pos_std, vel_std: %.1f, %.1f, %.1f", gps_est_error, gps_est_threshold, current_pos_std, gps_vel_est_error, pos_std, vel_std);
 }
 
 
@@ -564,8 +562,8 @@ void Localizer::handle_msg(const cereal::Event::Reader& log) {
   this->time_check(t);
   if (log.isSensorEvents()) {
     this->handle_sensors(t, log.getSensorEvents());
- } else if (log.isGpsLocationExternal()) {
-   this->handle_gps(t, log.getGpsLocationExternal());
+  } else if (log.isGpsLocationExternal()) {
+//    this->handle_gps(t, log.getGpsLocationExternal());
   } else if (log.isCarState()) {
     this->handle_car_state(t, log.getCarState());
   } else if (log.isCameraOdometry()) {
