@@ -28,7 +28,8 @@ jobs:
       uses: lewagon/wait-on-check-action@v1.0.0
       with:
         ref: master
-        wait-interval: 29
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        wait-interval: 30
         running-workflow-name: 'build prebuilt'
     - uses: actions/checkout@v3
       with:
