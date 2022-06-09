@@ -25,10 +25,10 @@ jobs:
       IMAGE_NAME: openpilot-prebuilt
     steps:
     - name: Wait for green check mark
-      uses: lewagon/wait-on-check-action@v1.0.0
+      uses: lewagon/wait-on-check-action@v0.2
       with:
         ref: master
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-token: ""
         wait-interval: 30
         running-workflow-name: 'build prebuilt'
     - uses: actions/checkout@v3
