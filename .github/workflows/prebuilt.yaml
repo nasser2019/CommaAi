@@ -28,7 +28,7 @@ jobs:
       uses: lewagon/wait-on-check-action@v0.2
       with:
         ref: master
-        wait-interval: 30
+        wait-interval: 29
         running-workflow-name: 'build prebuilt'
     - uses: actions/checkout@v3
       with:
