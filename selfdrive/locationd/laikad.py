@@ -33,6 +33,18 @@ class Laikad:
     self.orbit_q = Queue()
     self._first_correct_gps_message = None
 
+  def get_est_pos(self, t, pos_fix):
+    kf_pos_std = None
+    if all(self.kf_valid(t)):
+      self.gnss_kf.predict(t)
+      kf_pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
+    # If localizer is valid use its position to correct measurements
+    if kf_pos_std is not None and linalg.norm(kf_pos_std) < 100:
+      return self.gnss_kf.x[GStates.ECEF_POS]
+    if len(pos_fix) > 0 and abs(np.array(pos_fix[1])).mean() < 1000:
+      return pos_fix[0][:3]
+    return None
+
   def process_ublox_msg(self, ublox_msg, ublox_mono_time: int, block=False):
     if ublox_msg.which == 'measurementReport':
       report = ublox_msg.measurementReport
@@ -61,17 +73,7 @@ class Laikad:
       corrected_measurements = []
 
       t = ublox_mono_time * 1e-9
-      kf_pos_std = None
-      if all(self.kf_valid(t)):
-        self.gnss_kf.predict(t)
-        kf_pos_std = np.sqrt(abs(self.gnss_kf.P[GStates.ECEF_POS].diagonal()))
-      # If localizer is valid use its position to correct measurements
-      if kf_pos_std is not None and linalg.norm(kf_pos_std) < 100:
-        est_pos = self.gnss_kf.x[GStates.ECEF_POS]
-      elif len(pos_fix) > 0 and abs(np.array(pos_fix[1])).mean() < 1000:
-        est_pos = pos_fix[0][:3]
-      else:
-        est_pos = None
+      est_pos = self.get_est_pos(t, pos_fix)
       if est_pos is not None:
         corrected_measurements = correct_measurements(processed_measurements, est_pos, self.astro_dog)
 
