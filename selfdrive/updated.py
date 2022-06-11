@@ -417,6 +417,7 @@ def main() -> None:
     wait_helper.sleep(5*60 if update_failed_count > 0 else 90*60)
 
   dismount_overlay()
+  ov_lock_fd.close()
 
 
 if __name__ == "__main__":
