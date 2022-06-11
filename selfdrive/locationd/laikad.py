@@ -47,7 +47,7 @@ class Laikad:
   
   def get_pos_fix_func(self, t, processed_measurements):
     def get_pos_fix():
-      if self.latest_pos_fix is None or abs(self.latest_pos_fix_time - t) > 5:
+      if self.latest_pos_fix is None or abs(self.latest_pos_fix_time - t) >= 1:
         pos_fix = calc_pos_fix(processed_measurements, min_measurements=4)
         if len(pos_fix) > 0:
           self.latest_pos_fix = pos_fix
@@ -81,7 +81,6 @@ class Laikad:
       corrected_measurements = []
       t = ublox_mono_time * 1e-9
       get_pos_fix = self.get_pos_fix_func(t, processed_measurements)
-      # calc_pos_fix(processed_measurements, min_measurements=4)
       est_pos = self.get_kalman_pos(t)
       if est_pos is None:
         pos_fix = get_pos_fix()
@@ -110,7 +109,7 @@ class Laikad:
         cloudlog.info(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       pos_fix_related = ''
-      if self.latest_pos_fix is not None and abs(self.latest_pos_fix_time - t) < 5:
+      if self.latest_pos_fix is not None and abs(self.latest_pos_fix_time - t) < 1:
         dop = get_DOP(est_pos, [m.sat_pos for m in processed_measurements])
         pos_fix_related = f"diff kf pos vs fix {(ecef_pos - self.latest_pos_fix[0][:3]).round(1)} DOP {dop:.1f}"
       # todo cleanup
