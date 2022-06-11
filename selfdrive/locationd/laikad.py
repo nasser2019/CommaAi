@@ -32,8 +32,10 @@ class Laikad:
     self.orbit_p: Optional[Process] = None
     self.orbit_q = Queue()
     self._first_correct_gps_message = None
+    self.latest_pos_fix = None
+    self.latest_pos_fix_time = None
 
-  def get_est_pos(self, t, pos_fix):
+  def get_kalman_pos(self, t):
     kf_pos_std = None
     if all(self.kf_valid(t)):
       self.gnss_kf.predict(t)
@@ -41,11 +43,19 @@ class Laikad:
     # If localizer is valid use its position to correct measurements
     if kf_pos_std is not None and linalg.norm(kf_pos_std) < 100:
       return self.gnss_kf.x[GStates.ECEF_POS]
-    if len(pos_fix) > 0 and abs(np.array(pos_fix[1])).mean() < 1000:
-      return pos_fix[0][:3]
-    return None
 
-  def process_ublox_msg(self, ublox_msg, ublox_mono_time: int, block=False):
+  
+  def get_pos_fix_func(self, t, processed_measurements):
+    def get_pos_fix():
+      if self.latest_pos_fix is None or abs(self.latest_pos_fix_time - t) > 5:
+        pos_fix = calc_pos_fix(processed_measurements, min_measurements=4)
+        if len(pos_fix) > 0:
+          self.latest_pos_fix = pos_fix
+          self.latest_pos_fix_time = t
+      return self.latest_pos_fix
+    return get_pos_fix
+  
+  def process_ublox_msg(self, ublox_msg, ublox_mono_time: int, block=True):
     if ublox_msg.which == 'measurementReport':
       report = ublox_msg.measurementReport
       if report.gpsWeek > 0:
@@ -67,17 +77,21 @@ class Laikad:
           eph = self.astro_dog.get_nav(m.prn, sat_time)
         if eph:
           ephems_used.append(eph)
-      pos_fix = calc_pos_fix(processed_measurements, min_measurements=4)
-      # To get a position fix a minimum of 5 measurements are needed.
-      # Each report can contain less and some measurements can't be processed.
+          
       corrected_measurements = []
-
       t = ublox_mono_time * 1e-9
-      est_pos = self.get_est_pos(t, pos_fix)
+      get_pos_fix = self.get_pos_fix_func(t, processed_measurements)
+      # calc_pos_fix(processed_measurements, min_measurements=4)
+      est_pos = self.get_kalman_pos(t)
+      if est_pos is None:
+        pos_fix = get_pos_fix()
+        if pos_fix is not None and abs(np.array(pos_fix[1])).mean() < 1000:
+          est_pos = pos_fix[0][:3]
+          
       if est_pos is not None:
         corrected_measurements = correct_measurements(processed_measurements, est_pos, self.astro_dog)
 
-      self.update_localizer(pos_fix, t, corrected_measurements)
+      self.update_localizer(get_pos_fix, t, corrected_measurements)
       kf_valid = all(self.kf_valid(t))
 
       ecef_pos = self.gnss_kf.x[GStates.ECEF_POS].tolist()
@@ -96,9 +110,9 @@ class Laikad:
         cloudlog.info(f"Time until first fix after receiving first correct gps message: {time.time() - self._first_correct_gps_message:.2f}")
         self._first_correct_gps_message = False
       pos_fix_related = ''
-      if len(pos_fix) > 0:
+      if self.latest_pos_fix is not None and abs(self.latest_pos_fix_time - t) < 5:
         dop = get_DOP(est_pos, [m.sat_pos for m in processed_measurements])
-        pos_fix_related = f"diff kf pos vs fix {(ecef_pos - pos_fix[0][:3]).round(1)} DOP {dop:.1f}"
+        pos_fix_related = f"diff kf pos vs fix {(ecef_pos - self.latest_pos_fix[0][:3]).round(1)} DOP {dop:.1f}"
       # todo cleanup
       cloudlog.error(
         f"incoming {len(new_meas)} processed {len(processed_measurements)} corrected {len(corrected_measurements)} types: {set([e.eph_type.name for e in ephems_used])}, localizer_valid {kf_valid}" +
@@ -119,12 +133,13 @@ class Laikad:
     # elif ublox_msg.which == 'ionoData':
     # todo add this. Needed to better correct messages offline. First fix ublox_msg.cc to sent them.
 
-  def update_localizer(self, pos_fix, t: float, measurements: List[GNSSMeasurement]):
+  def update_localizer(self, get_pos_fix, t: float, measurements: List[GNSSMeasurement]):
     # Check time and outputs are valid
     valid = self.kf_valid(t)
     if not all(valid):
       # A position fix is needed when resetting the kalman filter.
-      if len(pos_fix) == 0:
+      pos_fix = get_pos_fix()
+      if pos_fix is None:
         return
       post_est = pos_fix[0][:3].tolist()
       if not valid[0]:
