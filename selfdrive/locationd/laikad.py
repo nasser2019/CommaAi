@@ -41,7 +41,6 @@ class Laikad:
           self._first_correct_gps_message = time.time()
         latest_msg_t = GPSTime(report.gpsWeek, report.rcvTow)
         self.fetch_orbits(latest_msg_t + SECS_IN_MIN, block)
-
       new_meas = read_raw_ublox(report)
       processed_measurements = process_measurements(new_meas, self.astro_dog)
       # todo temporary
